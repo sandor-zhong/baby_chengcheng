@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: flask-baby-reminder
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flask-baby-reminder-db
+          property: connectionString
+      - key: AI_MODEL_TYPE
+        value: mock
+      - key: AI_FAST_MODE
+        value: "true"

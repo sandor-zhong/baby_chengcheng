@@ -1,11 +1,9 @@
 import os
-import json
 from datetime import datetime, timedelta, timezone, date
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, request as flask_request, session
 from models import db, Event, Moment
 from sqlalchemy import func
 from flask_migrate import Migrate
-import openai
 
 # 北京时区 (UTC+8)
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -14,245 +12,248 @@ def beijing_now():
     """获取北京时间"""
     return datetime.now(BEIJING_TZ)
 
-# AI配置 - 使用免费的本地模型
-# 可以选择使用 Ollama 或其他免费模型
-AI_MODEL_TYPE = "ollama"  # 可选: "openai", "ollama", "mock"
-OLLAMA_BASE_URL = "http://localhost:11434"  # Ollama默认地址
-AI_FAST_MODE = True  # 快速模式：减少回答长度，提高速度
+def is_parenting_related(title, description, content):
+    """判断内容是否与育儿相关"""
+    # 育儿相关关键词
+    parenting_keywords = [
+        '育儿', '宝宝', '婴儿', '幼儿', '儿童', '孩子', '亲子', '母婴', '怀孕', '孕期', '分娩', '母乳', '奶粉',
+        '辅食', '睡眠', '哭闹', '发育', '成长', '教育', '早教', '幼儿园', '小学', '学习', '游戏', '玩具',
+        '安全', '健康', '疫苗', '发烧', '感冒', '腹泻', '便秘', '湿疹', '过敏', '营养', '补钙', '维生素',
+        'parenting', 'baby', 'infant', 'toddler', 'child', 'children', 'pregnancy', 'pregnant', 'breastfeeding',
+        'formula', 'sleep', 'development', 'education', 'safety', 'health', 'vaccine', 'nutrition'
+    ]
+    
+    # 非育儿相关关键词（需要过滤掉的内容）
+    non_parenting_keywords = [
+        '政治', '经济', '股票', '房价', '投资', '理财', '汽车', '房产', '旅游', '娱乐', '明星', '八卦',
+        '体育', '足球', '篮球', '电竞', '游戏', '科技', '手机', '电脑', '互联网', '创业', '职场',
+        'politics', 'economy', 'stock', 'investment', 'car', 'real estate', 'travel', 'entertainment',
+        'celebrity', 'sports', 'football', 'basketball', 'technology', 'mobile', 'computer', 'internet'
+    ]
+    
+    # 合并所有文本内容
+    all_text = f"{title} {description} {content}".lower()
+    
+    # 检查是否包含非育儿关键词
+    for keyword in non_parenting_keywords:
+        if keyword.lower() in all_text:
+            return False
+    
+    # 检查是否包含育儿关键词
+    for keyword in parenting_keywords:
+        if keyword.lower() in all_text:
+            return True
+    
+    return False
 
-def get_baby_profile():
-    """获取宝宝信息"""
-    profile_path = os.path.join(app.instance_path, 'profile.json')
-    if os.path.exists(profile_path):
-        with open(profile_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
+def categorize_content(title, description, content):
+    """智能分类内容"""
+    all_text = f"{title} {description} {content}".lower()
+    
+    # 喂养相关关键词
+    feeding_keywords = ['喂养', '母乳', '奶粉', '辅食', '吃饭', '营养', '补钙', '维生素', 'feeding', 'breastfeeding', 'formula', 'nutrition']
+    
+    # 健康相关关键词
+    health_keywords = ['健康', '疫苗', '发烧', '感冒', '腹泻', '便秘', '湿疹', '过敏', '安全', 'health', 'vaccine', 'fever', 'cold', 'safety']
+    
+    # 发育相关关键词
+    development_keywords = ['发育', '成长', '教育', '早教', '学习', '游戏', '玩具', 'development', 'education', 'learning', 'play', 'toy']
+    
+    # 睡眠相关关键词
+    sleep_keywords = ['睡眠', '睡觉', '哭闹', '安抚', 'sleep', 'crying', 'comfort']
+    
+    # 检查关键词匹配
+    if any(keyword in all_text for keyword in feeding_keywords):
+        return 'feeding'
+    elif any(keyword in all_text for keyword in health_keywords):
+        return 'health'
+    elif any(keyword in all_text for keyword in development_keywords):
+        return 'development'
+    elif any(keyword in all_text for keyword in sleep_keywords):
+        return 'sleep'
+    else:
+        return 'parenting'  # 默认分类
 
-def ai_chat(prompt, context=""):
-    """AI聊天功能 - 支持多种免费模型"""
+def fetch_rss_content(feed_url):
+    """抓取RSS内容"""
     try:
-        # 构建系统提示
-        if AI_FAST_MODE:
-            system_prompt = """你是育儿助手。请用简洁、实用的语言回答育儿问题。回答要简短（100字以内），直接给出3-5个要点建议。用中文回答。"""
-        else:
-            system_prompt = """你是一个专业的育儿助手，专门帮助新手父母解决育儿问题。请用温暖、专业、易懂的语言回答育儿相关问题。
-            
-            你的回答应该：
-            1. 基于科学的育儿知识
-            2. 考虑宝宝的安全和健康
-            3. 提供实用的建议
-            4. 用温和、鼓励的语气
-            5. 如果涉及医疗问题，建议咨询专业医生
-            
-            请用中文回答，语言要亲切自然。"""
+        print(f"开始抓取RSS: {feed_url}")
         
-        # 如果有上下文信息，添加到提示中
-        if context:
-            full_prompt = f"上下文信息：{context}\n\n用户问题：{prompt}"
-        else:
-            full_prompt = prompt
-        
-        if AI_MODEL_TYPE == "ollama":
-            return ai_chat_ollama(full_prompt, system_prompt)
-        elif AI_MODEL_TYPE == "openai":
-            return ai_chat_openai(full_prompt, system_prompt)
-        else:
-            return ai_chat_mock(full_prompt)
-            
-    except Exception as e:
-        return f"AI助手暂时无法回答，请稍后再试。错误：{str(e)}"
-
-def ai_chat_ollama(prompt, system_prompt):
-    """使用Ollama本地模型（带缓存优化）"""
-    try:
-        import requests
-        import hashlib
-        
-        # 简单的缓存机制
-        cache_key = hashlib.md5(prompt.encode()).hexdigest()[:8]
-        cache_file = f"cache/ai_cache_{cache_key}.txt"
-        
-        # 检查缓存
-        if os.path.exists(cache_file):
-            with open(cache_file, 'r', encoding='utf-8') as f:
-                cached_response = f.read()
-                if cached_response and len(cached_response) > 10:
-                    return f"[缓存回答] {cached_response}"
-        
-        # 使用已安装的模型
-        model_name = "gemma3:1b"  # 使用您已安装的模型
-        
-        response = requests.post(f"{OLLAMA_BASE_URL}/api/generate", 
-                               json={
-                                   "model": model_name,
-                                   "prompt": f"{system_prompt}\n\n{prompt}",
-                                   "stream": False,
-                                   "options": {
-                                       "temperature": 0.7,
-                                       "top_p": 0.9,
-                                       "max_tokens": 300,  # 限制回答长度，提高速度
-                                       "num_predict": 200,  # 预测token数量
-                                       "repeat_penalty": 1.1,
-                                       "stop": ["\n\n", "用户:", "问题:"]
-                                   }
-                               }, timeout=15)  # 减少超时时间
-        
-        if response.status_code == 200:
-            result = response.json()
-            ai_response = result.get('response', '抱歉，无法生成回答。')
-            
-            # 保存到缓存
-            try:
-                os.makedirs('cache', exist_ok=True)
-                with open(cache_file, 'w', encoding='utf-8') as f:
-                    f.write(ai_response)
-            except:
-                pass  # 缓存失败不影响主要功能
-            
-            return ai_response
-        else:
-            return f"Ollama服务错误：{response.status_code}"
-            
-    except requests.exceptions.ConnectionError:
-        return "无法连接到Ollama服务，请确保Ollama已启动。\n\n安装方法：\n1. 访问 https://ollama.ai/\n2. 下载并安装Ollama\n3. 运行: ollama pull qwen\n4. 启动Ollama服务"
-    except Exception as e:
-        return f"Ollama调用失败：{str(e)}"
-
-def ai_chat_free_online(prompt, system_prompt):
-    """使用免费在线AI服务"""
-    try:
-        import requests
-        
-        # 使用Hugging Face的免费API
-        API_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium"
-        headers = {"Authorization": "Bearer hf_your_token_here"}
-        
-        # 构建请求数据
-        data = {
-            "inputs": f"{system_prompt}\n\n用户问题：{prompt}",
-            "parameters": {
-                "max_length": 200,
-                "temperature": 0.7,
-                "do_sample": True
-            }
+        # 设置请求头，模拟浏览器访问
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache'
         }
         
-        response = requests.post(API_URL, headers=headers, json=data, timeout=30)
-        
-        if response.status_code == 200:
-            result = response.json()
-            if isinstance(result, list) and len(result) > 0:
-                return result[0].get('generated_text', '抱歉，无法生成回答。')
-            else:
-                return "抱歉，AI服务暂时无法使用。"
-        else:
-            return f"在线AI服务错误：{response.status_code}"
+        # 先测试URL可访问性
+        try:
+            response = requests.get(feed_url, headers=headers, timeout=15)
+            print(f"HTTP状态码: {response.status_code}")
             
+            if response.status_code != 200:
+                print(f"RSS源不可访问，状态码: {response.status_code}")
+                return [], None
+                
+        except requests.exceptions.RequestException as e:
+            print(f"网络请求失败: {e}")
+            return [], None
+        
+        # 解析RSS feed
+        feed = feedparser.parse(feed_url)
+        
+        print(f"RSS解析状态: bozo={feed.bozo}, status={getattr(feed, 'status', 'unknown')}")
+        
+        if feed.bozo:
+            print(f"RSS解析警告: {feed.bozo_exception}")
+        
+        # 检查是否有内容
+        if not feed.entries:
+            print("RSS源没有找到任何条目")
+            return [], None
+        
+        print(f"找到 {len(feed.entries)} 个条目")
+        
+        items = []
+        filtered_count = 0
+        
+        for i, entry in enumerate(feed.entries[:20]):  # 增加条目数量以便过滤
+            try:
+                title = entry.get('title', '无标题')
+                description = entry.get('description', '')
+                content = entry.get('content', [{}])[0].get('value', '') if hasattr(entry, 'content') else ''
+                
+                # 过滤非育儿相关内容
+                if not is_parenting_related(title, description, content):
+                    filtered_count += 1
+                    print(f"过滤非育儿内容: {title[:50]}...")
+                    continue
+                
+                # 智能分类
+                auto_category = categorize_content(title, description, content)
+                
+                # 处理发布时间
+                pub_date = beijing_now()
+                if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                    try:
+                        pub_date = datetime(*entry.published_parsed[:6], tzinfo=BEIJING_TZ)
+                    except Exception as date_error:
+                        print(f"日期解析错误: {date_error}")
+                
+                # 处理图片链接
+                image_url = None
+                if hasattr(entry, 'enclosures'):
+                    for enclosure in entry.enclosures:
+                        if enclosure.get('type', '').startswith('image/'):
+                            image_url = enclosure.get('href')
+                            break
+                
+                # 如果没有找到图片，尝试从内容中提取
+                if not image_url and hasattr(entry, 'content'):
+                    import re
+                    img_match = re.search(r'<img[^>]+src="([^"]+)"', str(entry.content))
+                    if img_match:
+                        image_url = img_match.group(1)
+                
+                item = {
+                    'title': title,
+                    'description': description,
+                    'content': content,
+                    'link': entry.get('link', ''),
+                    'image_url': image_url,
+                    'pub_date': pub_date,
+                    'auto_category': auto_category
+                }
+                items.append(item)
+                print(f"处理条目 {i+1}: {title[:50]}... (分类: {auto_category})")
+                
+                # 只保留前10个育儿相关内容
+                if len(items) >= 10:
+                    break
+                
+            except Exception as entry_error:
+                print(f"处理条目 {i+1} 时出错: {entry_error}")
+                continue
+        
+        print(f"成功处理 {len(items)} 个育儿相关条目，过滤了 {filtered_count} 个非育儿内容")
+        return items, feed.feed.get('title', '未知来源')
+    
     except Exception as e:
-        return f"在线AI调用失败：{str(e)}"
+        print(f"RSS抓取错误: {e}")
+        import traceback
+        traceback.print_exc()
+        return [], None
 
-def ai_chat_openai(prompt, system_prompt):
-    """使用OpenAI API"""
+def update_rss_feed(feed_id):
+    """更新指定RSS源的内容"""
     try:
-        client = openai.OpenAI(api_key=openai.api_key)
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500,
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip()
+        print(f"开始更新RSS源 ID: {feed_id}")
+        
+        feed = RSSFeed.query.get(feed_id)
+        if not feed:
+            print(f"RSS源不存在: {feed_id}")
+            return False
+            
+        if not feed.is_active:
+            print(f"RSS源已停用: {feed.name}")
+            return False
+        
+        print(f"正在更新RSS源: {feed.name} ({feed.url})")
+        
+        items, feed_title = fetch_rss_content(feed.url)
+        if not items:
+            print("没有获取到任何内容")
+            return False
+        
+        print(f"获取到 {len(items)} 个新条目")
+        
+        # 更新feed标题（如果获取到了）
+        if feed_title and feed_title != '未知来源':
+            print(f"更新feed标题: {feed_title}")
+            feed.name = feed_title
+        
+        # 添加新内容
+        new_count = 0
+        for item_data in items:
+            # 检查是否已存在相同链接的内容
+            existing_item = RSSItem.query.filter_by(
+                feed_id=feed_id, 
+                link=item_data['link']
+            ).first()
+            
+            if not existing_item:
+                # 使用智能分类结果
+                auto_category = item_data.get('auto_category', 'parenting')
+                
+                new_item = RSSItem(
+                    feed_id=feed_id,
+                    title=item_data['title'],
+                    description=item_data['description'],
+                    content=item_data['content'],
+                    link=item_data['link'],
+                    image_url=item_data['image_url'],
+                    pub_date=item_data['pub_date']
+                )
+                db.session.add(new_item)
+                new_count += 1
+                print(f"添加新条目: {item_data['title'][:50]}... (智能分类: {auto_category})")
+            else:
+                print(f"条目已存在，跳过: {item_data['title'][:50]}...")
+        
+        # 更新最后抓取时间
+        feed.last_updated = beijing_now()
+        db.session.commit()
+        
+        print(f"RSS源更新完成，新增 {new_count} 个条目")
+        return True
+    
     except Exception as e:
-        return f"OpenAI调用失败：{str(e)}"
-
-def ai_chat_mock(prompt):
-    """智能模拟AI回答（根据问题内容匹配回答）"""
-    # 关键词匹配回答
-    prompt_lower = prompt.lower()
-    
-    # 哭闹相关问题
-    if any(keyword in prompt_lower for keyword in ['哭', '闹', '哭闹', '哭闹', '烦躁', '不安']):
-        return "宝宝哭闹是很正常的现象，可以尝试以下方法：\n1. 检查是否饿了、困了或需要换尿布\n2. 轻柔的抚摸和轻声安慰\n3. 抱着宝宝轻轻摇晃\n4. 播放轻柔的音乐\n5. 如果持续哭闹，建议咨询儿科医生"
-    
-    # 睡眠相关问题
-    elif any(keyword in prompt_lower for keyword in ['睡觉', '睡眠', '哄睡', '入睡', '不睡', '夜醒']):
-        return "关于宝宝睡眠，建议：\n1. 建立规律的睡眠时间\n2. 创造安静、舒适的睡眠环境\n3. 睡前进行轻柔的活动（如洗澡、按摩）\n4. 避免过度刺激\n5. 保持耐心，每个宝宝的睡眠习惯都不同"
-    
-    # 喂养相关问题
-    elif any(keyword in prompt_lower for keyword in ['吃', '喂', '奶', '饭', '不吃饭', '厌食', '挑食']):
-        return "关于宝宝喂养，建议：\n1. 保持规律的喂食时间\n2. 创造愉快的用餐环境\n3. 不要强迫宝宝进食\n4. 尝试不同的食物和口味\n5. 如果持续不吃饭，建议咨询儿科医生"
-    
-    # 健康相关问题
-    elif any(keyword in prompt_lower for keyword in ['发烧', '感冒', '生病', '体温', '健康', '症状']):
-        return "关于宝宝健康，建议：\n1. 定期测量体温，正常体温为36.5-37.5°C\n2. 注意观察宝宝的精神状态\n3. 保持宝宝周围环境清洁\n4. 如有异常症状，及时咨询儿科医生\n5. 预防胜于治疗，注意日常护理"
-    
-    # 发育相关问题
-    elif any(keyword in prompt_lower for keyword in ['发育', '成长', '身高', '体重', '里程碑', '能力']):
-        return "关于宝宝发育，建议：\n1. 每个宝宝的发育速度都不同，不要过度比较\n2. 多与宝宝互动，促进大脑发育\n3. 提供丰富的感官刺激\n4. 定期进行体检，关注发育指标\n5. 如有发育疑虑，及时咨询儿科医生"
-    
-    # 安全相关问题
-    elif any(keyword in prompt_lower for keyword in ['安全', '危险', '防护', '意外', '受伤']):
-        return "关于宝宝安全，建议：\n1. 确保宝宝周围环境安全，移除危险物品\n2. 使用安全座椅和防护用品\n3. 不要让宝宝独自留在高处\n4. 学习基本的急救知识\n5. 定期检查玩具和用品的安全性"
-    
-    # 情感相关问题
-    elif any(keyword in prompt_lower for keyword in ['情感', '情绪', '心理', '安全感', '依恋']):
-        return "关于宝宝情感发展，建议：\n1. 多与宝宝进行眼神交流和身体接触\n2. 及时回应宝宝的需求\n3. 创造温暖、安全的家庭环境\n4. 建立稳定的日常作息\n5. 给予宝宝足够的关爱和关注"
-    
-    # 默认回答
-    else:
-        return "感谢您的提问！作为育儿助手，我建议：\n1. 保持耐心，每个宝宝都是独特的\n2. 多观察宝宝的行为和需求\n3. 建立规律的日常作息\n4. 及时咨询专业医生\n5. 相信自己的育儿直觉，您是最了解宝宝的人"
-
-def ai_analyze_moments():
-    """AI分析时光记录"""
-    try:
-        # 获取最近的时光记录
-        recent_moments = Moment.query.order_by(Moment.timestamp.desc()).limit(10).all()
-        
-        if not recent_moments:
-            return "暂无时光记录可供分析"
-        
-        # 构建分析内容
-        moments_text = ""
-        for moment in recent_moments:
-            moments_text += f"时间：{moment.timestamp.strftime('%Y-%m-%d %H:%M')}\n"
-            moments_text += f"内容：{moment.content}\n"
-            if moment.image_path:
-                moments_text += f"包含图片\n"
-            if moment.video_path:
-                moments_text += f"包含视频\n"
-            moments_text += "---\n"
-        
-        prompt = f"请分析以下宝宝的成长记录，提供专业的观察和建议：\n\n{moments_text}"
-        
-        return ai_chat(prompt)
-    except Exception as e:
-        return f"分析失败：{str(e)}"
-
-def ai_health_advice():
-    """AI健康建议"""
-    try:
-        # 获取宝宝信息
-        profile = get_baby_profile()
-        baby_age = profile.get('age', '未知')
-        baby_birth = profile.get('birth', '未知')
-        
-        # 获取最近的喂奶记录
-        recent_feeds = Event.query.filter(Event.type == 'feed').order_by(Event.timestamp.desc()).limit(5).all()
-        feed_summary = ""
-        if recent_feeds:
-            total_ml = sum(f.amount_ml for f in recent_feeds if f.amount_ml)
-            feed_summary = f"最近5次喂奶总量：{total_ml}ml"
-        
-        context = f"宝宝年龄：{baby_age}\n出生日期：{baby_birth}\n{feed_summary}"
-        
-        prompt = "请根据宝宝的年龄和喂养情况，提供专业的健康建议和注意事项。"
-        
-        return ai_chat(prompt, context)
-    except Exception as e:
-        return f"获取健康建议失败：{str(e)}"
+        print(f"更新RSS源错误: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return False
 
 
 def create_app() -> Flask:
@@ -260,16 +261,10 @@ def create_app() -> Flask:
 
     # 基础配置
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    # 数据库配置 - 支持Render等云平台
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url:
-        # 处理Render等平台的数据库URL
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    else:
-        # 本地开发使用SQLite
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///baby.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+        'DATABASE_URL',
+        'sqlite:///baby.db'
+    )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_MB', '15')) * 1024 * 1024
     # 静态资源长缓存
@@ -1046,40 +1041,161 @@ def create_app() -> Flask:
         except Exception as e:
             raise Exception(f'视频保存失败：{str(e)}')
 
-    # AI功能路由
-    @app.route('/ai')
-    def ai_page():
-        """AI助手页面"""
-        return render_template('ai.html')
-
-    @app.route('/api/ai/chat', methods=['POST'])
-    def ai_chat_api():
-        """AI聊天API"""
-        data = request.get_json()
-        question = data.get('question', '')
+    # RSS订阅功能路由
+    @app.route('/rss')
+    def rss_feeds():
+        """RSS订阅页面"""
+        feeds = RSSFeed.query.filter_by(is_active=True).order_by(RSSFeed.name).all()
+        return render_template('rss_feeds.html', feeds=feeds)
+    
+    @app.route('/rss/items')
+    def rss_items():
+        """RSS内容列表"""
+        category = request.args.get('category', '')
+        feed_id = request.args.get('feed_id', '')
+        page = int(request.args.get('page', 1))
+        per_page = 20
         
-        if not question:
-            return jsonify({'success': False, 'error': '请输入问题'})
+        query = RSSItem.query.join(RSSFeed)
         
-        # 获取宝宝信息作为上下文
-        profile = get_baby_profile()
-        context = f"宝宝年龄：{profile.get('age', '未知')}\n出生日期：{profile.get('birth', '未知')}"
+        if category:
+            query = query.filter(RSSFeed.category == category)
+        if feed_id:
+            query = query.filter(RSSItem.feed_id == feed_id)
+            
+        items = query.order_by(RSSItem.pub_date.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
         
-        answer = ai_chat(question, context)
+        return render_template('rss_items.html', items=items, category=category, feed_id=feed_id)
+    
+    @app.route('/rss/item/<int:item_id>')
+    def rss_item_detail(item_id):
+        """RSS内容详情"""
+        item = RSSItem.query.get_or_404(item_id)
+        # 标记为已读
+        item.is_read = True
+        db.session.commit()
+        return render_template('rss_item_detail.html', item=item)
+    
+    @app.route('/api/rss/feeds', methods=['GET', 'POST'])
+    def api_rss_feeds():
+        """API: RSS源管理"""
+        if request.method == 'GET':
+            feeds = RSSFeed.query.filter_by(is_active=True).all()
+            return jsonify([feed.to_dict() for feed in feeds])
         
-        return jsonify({'success': True, 'answer': answer})
-
-    @app.route('/api/ai/analyze', methods=['POST'])
-    def ai_analyze_api():
-        """AI分析时光记录API"""
-        analysis = ai_analyze_moments()
-        return jsonify({'success': True, 'analysis': analysis})
-
-    @app.route('/api/ai/health', methods=['POST'])
-    def ai_health_api():
-        """AI健康建议API"""
-        advice = ai_health_advice()
-        return jsonify({'success': True, 'advice': advice})
+        elif request.method == 'POST':
+            data = request.get_json()
+            feed = RSSFeed(
+                name=data.get('name'),
+                url=data.get('url'),
+                description=data.get('description'),
+                category=data.get('category'),
+                icon_url=data.get('icon_url')
+            )
+            db.session.add(feed)
+            db.session.commit()
+            
+            # 添加成功后立即抓取内容
+            try:
+                update_rss_feed(feed.id)
+            except Exception as e:
+                print(f"自动抓取RSS内容失败: {e}")
+            
+            return jsonify({'success': True, 'feed': feed.to_dict()})
+    
+    @app.route('/api/rss/items')
+    def api_rss_items():
+        """API: 获取RSS内容"""
+        category = request.args.get('category', '')
+        feed_id = request.args.get('feed_id', '')
+        limit = int(request.args.get('limit', 20))
+        
+        query = RSSItem.query.join(RSSFeed)
+        
+        if category:
+            query = query.filter(RSSFeed.category == category)
+        if feed_id:
+            query = query.filter(RSSItem.feed_id == feed_id)
+            
+        items = query.order_by(RSSItem.pub_date.desc()).limit(limit).all()
+        return jsonify([item.to_dict() for item in items])
+    
+    @app.route('/api/rss/item/<int:item_id>/favorite', methods=['POST'])
+    def api_rss_item_favorite(item_id):
+        """API: 收藏/取消收藏RSS内容"""
+        item = RSSItem.query.get_or_404(item_id)
+        item.is_favorite = not item.is_favorite
+        db.session.commit()
+        return jsonify({'success': True, 'is_favorite': item.is_favorite})
+    
+    @app.route('/api/rss/item/<int:item_id>/read', methods=['POST'])
+    def api_rss_item_read(item_id):
+        """API: 标记RSS内容为已读"""
+        item = RSSItem.query.get_or_404(item_id)
+        item.is_read = True
+        db.session.commit()
+        return jsonify({'success': True})
+    
+    @app.route('/api/rss/feeds/<int:feed_id>/refresh', methods=['POST'])
+    def api_refresh_rss_feed(feed_id):
+        """手动刷新RSS源内容"""
+        try:
+            success = update_rss_feed(feed_id)
+            if success:
+                return jsonify({'success': True, 'message': 'RSS内容更新成功'})
+            else:
+                return jsonify({'success': False, 'message': 'RSS内容更新失败'})
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
+    
+    @app.route('/api/rss/feeds/<int:feed_id>', methods=['PUT', 'DELETE'])
+    def api_manage_rss_feed(feed_id):
+        """管理RSS源：编辑或删除"""
+        try:
+            feed = RSSFeed.query.get_or_404(feed_id)
+            
+            if request.method == 'PUT':
+                # 编辑RSS源
+                data = request.get_json()
+                feed.name = data.get('name', feed.name)
+                feed.url = data.get('url', feed.url)
+                feed.description = data.get('description', feed.description)
+                feed.category = data.get('category', feed.category)
+                feed.icon_url = data.get('icon_url', feed.icon_url)
+                feed.is_active = data.get('is_active', feed.is_active)
+                
+                db.session.commit()
+                return jsonify({'success': True, 'message': 'RSS源更新成功', 'feed': feed.to_dict()})
+            
+            elif request.method == 'DELETE':
+                # 删除RSS源及其所有内容
+                # 先删除相关的RSS内容
+                RSSItem.query.filter_by(feed_id=feed_id).delete()
+                # 再删除RSS源
+                db.session.delete(feed)
+                db.session.commit()
+                return jsonify({'success': True, 'message': 'RSS源删除成功'})
+                
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': f'操作失败: {str(e)}'})
+    
+    @app.route('/api/rss/feeds/<int:feed_id>/toggle', methods=['POST'])
+    def api_toggle_rss_feed(feed_id):
+        """切换RSS源启用/停用状态"""
+        try:
+            feed = RSSFeed.query.get_or_404(feed_id)
+            feed.is_active = not feed.is_active
+            db.session.commit()
+            
+            status = '启用' if feed.is_active else '停用'
+            return jsonify({'success': True, 'message': f'RSS源已{status}', 'is_active': feed.is_active})
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': f'操作失败: {str(e)}'})
 
     return app
 
@@ -1088,7 +1204,4 @@ app = create_app()
 
 
 if __name__ == '__main__':
-    # 生产环境使用gunicorn，开发环境使用Flask开发服务器
-    port = int(os.environ.get('PORT', 9000))
-    debug = os.environ.get('FLASK_ENV') != 'production'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 9000)), debug=True)

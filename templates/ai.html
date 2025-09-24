@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}AI育儿助手{% endblock %}
+
+{% block extra_styles %}
+<style>
+.ai-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.ai-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.ai-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+.ai-content {
+    padding: 20px;
+}
+
+.chat-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f8fafc;
+}
+
+.chat-message {
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 10px;
+    max-width: 80%;
+}
+
+.user-message {
+    background: #667eea;
+    color: white;
+    margin-left: auto;
+    text-align: right;
+}
+
+.ai-message {
+    background: white;
+    border: 1px solid #e2e8f0;
+    margin-right: auto;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 12px 15px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.input-group button {
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.input-group button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.ai-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.feature-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.feature-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: #667eea;
+}
+
+.loading {
+    display: none;
+    text-align: center;
+    color: #667eea;
+}
+
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ai-container">
+    <!-- AI助手标题 -->
+    <div class="ai-card">
+        <div class="ai-header">
+            <h2><span style="font-weight: bold; color: #007bff;">AI</span> 育儿助手</h2>
+            <p>专业的育儿建议和智能分析</p>
+        </div>
+    </div>
+
+    <!-- AI聊天功能 -->
+    <div class="ai-card">
+        <div class="ai-content">
+            <h4><i class="bi bi-chat-dots"></i> 智能问答</h4>
+            <div class="chat-container" id="chatContainer">
+                <div class="chat-message ai-message">
+                    <strong>AI助手：</strong>您好！我是您的专属育儿助手，有什么育儿问题可以随时问我哦！
+                </div>
+            </div>
+            <div class="input-group">
+                <input type="text" id="questionInput" placeholder="请输入您的育儿问题..." maxlength="200">
+                <button onclick="askQuestion()">
+                    <i class="bi bi-send"></i> 发送
+                </button>
+            </div>
+            <div class="loading" id="chatLoading">
+                <div class="spinner"></div>
+                <span>AI正在思考中...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI功能卡片 -->
+    <div class="ai-features">
+        <div class="feature-card" onclick="analyzeMoments()">
+            <div class="feature-icon">
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <h5>成长分析</h5>
+            <p>AI分析宝宝的成长记录，提供专业观察和建议</p>
+        </div>
+
+        <div class="feature-card" onclick="getHealthAdvice()">
+            <div class="feature-icon">
+                <i class="bi bi-heart-pulse"></i>
+            </div>
+            <h5>健康建议</h5>
+            <p>基于宝宝年龄和喂养情况，提供个性化健康建议</p>
+        </div>
+
+        <div class="feature-card" onclick="showQuickTips()">
+            <div class="feature-icon">
+                <i class="bi bi-lightbulb"></i>
+            </div>
+            <h5>育儿贴士</h5>
+            <p>获取实用的育儿技巧和注意事项</p>
+        </div>
+    </div>
+
+    <!-- 分析结果区域 -->
+    <div class="ai-card" id="analysisResult" style="display: none;">
+        <div class="ai-content">
+            <h4><i class="bi bi-bar-chart"></i> 分析结果</h4>
+            <div id="analysisContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 发送问题
+async function askQuestion() {
+    const input = document.getElementById('questionInput');
+    const question = input.value.trim();
+    
+    if (!question) {
+        alert('请输入问题');
+        return;
+    }
+    
+    // 显示用户消息
+    addMessage(question, 'user');
+    input.value = '';
+    
+    // 显示加载状态
+    showLoading('chatLoading');
+    
+    try {
+        const response = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question: question })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            addMessage(data.answer, 'ai');
+        } else {
+            addMessage('抱歉，AI助手暂时无法回答，请稍后再试。', 'ai');
+        }
+    } catch (error) {
+        addMessage('网络错误，请检查连接后重试。', 'ai');
+    } finally {
+        hideLoading('chatLoading');
+    }
+}
+
+// 添加消息到聊天容器
+function addMessage(message, type) {
+    const container = document.getElementById('chatContainer');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${type}-message`;
+    
+    if (type === 'user') {
+        messageDiv.innerHTML = `<strong>您：</strong>${message}`;
+    } else {
+        messageDiv.innerHTML = `<strong>AI助手：</strong>${message}`;
+    }
+    
+    container.appendChild(messageDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+// 分析时光记录
+async function analyzeMoments() {
+    showLoading('analysisResult');
+    
+    try {
+        const response = await fetch('/api/ai/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('analysisContent').innerHTML = data.analysis.replace(/\n/g, '<br>');
+            document.getElementById('analysisResult').style.display = 'block';
+        } else {
+            document.getElementById('analysisContent').innerHTML = '分析失败，请稍后再试。';
+            document.getElementById('analysisResult').style.display = 'block';
+        }
+    } catch (error) {
+        document.getElementById('analysisContent').innerHTML = '网络错误，请检查连接后重试。';
+        document.getElementById('analysisResult').style.display = 'block';
+    } finally {
+        hideLoading('analysisResult');
+    }
+}
+
+// 获取健康建议
+async function getHealthAdvice() {
+    showLoading('analysisResult');
+    
+    try {
+        const response = await fetch('/api/ai/health', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('analysisContent').innerHTML = data.advice.replace(/\n/g, '<br>');
+            document.getElementById('analysisResult').style.display = 'block';
+        } else {
+            document.getElementById('analysisContent').innerHTML = '获取建议失败，请稍后再试。';
+            document.getElementById('analysisResult').style.display = 'block';
+        }
+    } catch (error) {
+        document.getElementById('analysisContent').innerHTML = '网络错误，请检查连接后重试。';
+        document.getElementById('analysisResult').style.display = 'block';
+    } finally {
+        hideLoading('analysisResult');
+    }
+}
+
+// 显示快速贴士
+function showQuickTips() {
+    const tips = [
+        "💡 宝宝哭闹时，可以尝试轻柔的抚摸和轻声安慰",
+        "🍼 喂奶后记得给宝宝拍嗝，避免吐奶",
+        "😴 建立规律的睡眠时间，有助于宝宝健康成长",
+        "🧸 多与宝宝互动，促进大脑发育",
+        "🌡️ 定期测量体温，注意宝宝的身体状况",
+        "👶 保持宝宝周围环境清洁，预防感染"
+    ];
+    
+    const randomTip = tips[Math.floor(Math.random() * tips.length)];
+    addMessage(randomTip, 'ai');
+}
+
+// 显示加载状态
+function showLoading(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.style.display = 'block';
+    }
+}
+
+// 隐藏加载状态
+function hideLoading(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.style.display = 'none';
+    }
+}
+
+// 回车发送消息
+document.getElementById('questionInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        askQuestion();
+    }
+});
+</script>
+{% endblock %}

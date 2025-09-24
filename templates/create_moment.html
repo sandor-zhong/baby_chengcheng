@@ -5,10 +5,25 @@
 /* 简洁优雅的设计 */
 .moment-create-container {
     background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-    min-height: 100vh;
+    min-height: calc(100vh - 200px);
     padding: 40px 0;
     position: relative;
+    z-index: 0;
+    margin-top: 0;
+    padding-top: -10px;
 }
+
+/* 确保页面内容不会覆盖封面 */
+.moment-create-container .container {
+    position: relative;
+    z-index: 1;
+}
+
+/* 发布时光页面专用样式 - 使用简化头部 */
+
+
+
+/* 发布时光页面专用样式 - 使用简化头部 */
 
 .moment-card {
     border: 5px solid var(--border-color) !important;
@@ -19,6 +34,7 @@
     overflow: hidden;
     margin: 20px !important;
     transition: all 0.3s ease;
+    z-index: 2;
 }
 
 .moment-header {
@@ -424,20 +440,20 @@
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-12 col-md-8 col-lg-6">
-                <div class="moment-card" style="border: 5px solid #e2e8f0 !important; border-radius: 25px !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; background: white !important; margin: 0px !important; padding: 0 !important;">
-                    <div class="moment-header" style="padding: 25px 40px 28px 40px !important;">
+                <div class="moment-card" style="border: 5px solid #e2e8f0 !important; border-radius: 25px !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; background: white !important; margin: 0 !important; padding: 0 !important;">
+                    <div class="moment-header" style="padding: 15px 30px 18px 30px !important;">
                         <h5>记录美好时光</h5>
                         <p>分享宝宝的珍贵瞬间</p>
                     </div>
-                    <div class="moment-body" style="padding: 0px 15px !important;">
+                    <div class="moment-body" style="padding: 0px 15px 15px 15px !important;">
                     <form action="{{ url_for('create_moment') }}" method="post" enctype="multipart/form-data">
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label for="content" class="form-label">分享这一刻</label>
-                            <textarea name="content" id="content" class="form-control" rows="4" 
+                            <textarea name="content" id="content" class="form-control" rows="3" 
                                       placeholder="记录下宝宝的美好瞬间..." required></textarea>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">添加媒体（可选）</label>
                             <div class="upload-area" id="uploadArea">
                                 <div class="upload-icon">
@@ -460,13 +476,17 @@
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center mt-4 mb-4" style="padding: 0 8px;">
-                            <a href="{{ url_for('moments') }}" class="btn btn-outline-secondary" style="border-radius: 20px; padding: 8px 16px; font-weight: 500; border: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; font-size: 0.9rem;">
-                                <i class="bi bi-arrow-left me-1"></i>返回
-                            </a>
-                            <button type="submit" class="btn btn-primary btn-publish" style="border-radius: 20px; padding: 8px 16px; font-weight: 500; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; font-size: 0.9rem; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);">
-                                <i class="bi bi-send me-1"></i>发布
-                            </button>
+                        <div class="row mt-2 mb-2">
+                            <div class="col-6 d-flex justify-content-start">
+                                <a href="{{ url_for('moments') }}" class="btn btn-outline-secondary" style="border-radius: 15px; padding: 6px 16px; font-weight: 500; border: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; font-size: 0.8rem; transition: all 0.3s ease;">
+                                    <i class="bi bi-arrow-left me-1"></i>返回
+                                </a>
+                            </div>
+                            <div class="col-6 d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary" style="border-radius: 12px; padding: 2px 12px; font-weight: 500; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; font-size: 0.75rem; box-shadow: 0 1px 4px rgba(102, 126, 234, 0.2); transition: all 0.3s ease;">
+                                    <i class="bi bi-send me-1"></i>发布
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
