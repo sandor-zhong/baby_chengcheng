@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>宝宝提醒助手</title>
+<!-- Bootstrap CDN -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+:root {
+  /* 浅色主题 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-muted: #adb5bd;
+  --border-color: #dee2e6;
+  --shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  --shadow-lg: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] {
+  /* 深色主题 */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #404040;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #808080;
+  --border-color: #404040;
+  --shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 0.5rem 1rem rgba(0, 0, 0, 0.4);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  z-index: 1000;
+  background: none;
+  border: none;
+  padding: 8px;
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+}
+
+.theme-toggle-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.theme-toggle-btn:hover {
+  color: rgba(255, 255, 255, 1);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+/* 封面特效 */
+.cover-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.cover-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: all 0.5s ease;
+}
+
+/* 浅色主题 - 阳光效果 */
+[data-theme="light"] .cover-container::before {
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(ellipse 60% 40% at 30% 20%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(ellipse 70% 45% at 70% 15%, rgba(255, 255, 255, 0.2), transparent);
+  animation: gentle-sunlight 8s ease-in-out infinite;
+}
+
+/* 深色主题 - 星星效果 */
+[data-theme="dark"] .cover-container::before {
+  background: 
+    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 40px 70px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 160px 30px, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 180px 50px, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 60px 90px, rgba(255, 255, 255, 0.8), transparent);
+  background-repeat: repeat;
+  background-size: 200px 120px;
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+/* 温和阳光动画 */
+@keyframes gentle-sunlight {
+  0%, 100% { 
+    opacity: 0.2; 
+    transform: scale(1) translateY(0px);
+  }
+  50% { 
+    opacity: 0.5; 
+    transform: scale(1.05) translateY(-5px);
+  }
+}
+
+/* 星星闪烁动画 */
+@keyframes twinkle {
+  0%, 100% { 
+    opacity: 0.3; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.8; 
+    transform: scale(1.1);
+  }
+}
+
+/* 深色主题星星位置调整 */
+[data-theme="dark"] .cover-container::before {
+  background-position: 
+    0 0,
+    50px 20px,
+    100px 10px,
+    150px 30px,
+    180px 5px,
+    30px 60px,
+    80px 80px;
+}
+
+{% block extra_styles %}{% endblock %}
+</style>
+</head>
+<body>
+<!-- 主题切换按钮 -->
+<div class="theme-toggle">
+  <button class="theme-toggle-btn" id="themeToggle" title="切换主题">
+    <i class="bi bi-sun" id="themeIcon"></i>
+  </button>
+</div>
+
+<div class="container py-3">
+<header class="mb-3">
+  {% if request.endpoint not in ['moment_detail', 'edit_moment'] %}
+  <!-- 完整封面区域（包含背景图片） -->
+  <div class="position-relative rounded cover-container" style="height:140px; overflow:hidden;">
+    {% if request.endpoint != 'settings' %}
+    <form action="{{ url_for('upload_cover') }}" method="post" enctype="multipart/form-data" id="coverForm">
+      <input type="file" name="cover" id="coverInput" accept="image/*" style="display:none" onchange="document.getElementById('coverForm').submit()">
+      <img src="{{ cover_url }}" alt="cover" id="coverImage" style="width:100%;height:100%;object-fit:cover;filter:brightness(0.95);cursor:pointer;transition:all 0.3s ease;" onclick="handleCoverClick()" onmouseover="this.style.transform='scale(1.02)'; this.style.filter='brightness(1.05)'" onmouseout="this.style.transform='scale(1)'; this.style.filter='brightness(0.95)'">
+    </form>
+    {% else %}
+    <img src="{{ cover_url }}" alt="cover" style="width:100%;height:100%;object-fit:cover;filter:brightness(0.95)">
+    {% endif %}
+    <div class="position-absolute bottom-0 start-0 end-0 p-2" style="background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.35) 100%);">
+        <div class="d-flex align-items-end justify-content-between">
+        <div class="d-flex align-items-center gap-2 text-white">
+          {% if request.endpoint != 'settings' %}
+          <a href="{{ url_for('settings') }}" class="text-decoration-none">
+            <img src="{{ avatar_url }}" alt="avatar" class="rounded-circle" style="width:56px;height:56px;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.5);cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          </a>
+          {% else %}
+          <img src="{{ avatar_url }}" alt="avatar" class="rounded-circle" style="width:56px;height:56px;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.5);">
+          {% endif %}
+          <div>
+            <div class="fw-semibold" style="font-size:1.1rem;line-height:1;">{{ baby_name or '宝宝提醒助手' }}</div>
+            <div class="" style="font-size:.9rem;opacity:.9;">
+              {% if baby_age_text %}{{ baby_age_text }}{% endif %}{% if baby_birth %} · {{ baby_birth }}{% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="pb-1 d-flex gap-2">
+          <a href="{{ url_for('moments') }}" class="btn btn-sm btn-light">
+            <i class="bi bi-camera"></i> 时光
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <!-- 简化头部（时光详情页和编辑页：只显示头像和信息，无背景） -->
+  <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{{ url_for('settings') }}" class="text-decoration-none">
+        <img src="{{ avatar_url }}" alt="avatar" class="rounded-circle" style="width:48px;height:48px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+      </a>
+      <div>
+        <div class="fw-semibold text-dark" style="font-size:1.1rem;line-height:1;">{{ baby_name or '宝宝提醒助手' }}</div>
+        <div class="text-muted" style="font-size:.9rem;">
+          {% if baby_age_text %}{{ baby_age_text }}{% endif %}{% if baby_birth %} · {{ baby_birth }}{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('moments') }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-camera"></i> 时光
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</header>
+
+
+
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, msg in messages %}
+<div class="alert alert-{{ category }}">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+
+{% block content %}{% endblock %}
+
+
+<footer class="text-center text-muted mt-4">
+
+</footer>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// 封面点击效果
+function handleCoverClick() {
+  const coverImage = document.getElementById('coverImage');
+  if (!coverImage) return;
+  
+  // 添加点击动画效果
+  coverImage.style.transform = 'scale(0.98)';
+  coverImage.style.filter = 'brightness(1.1)';
+  
+  // 创建涟漪效果
+  createRippleEffect(coverImage);
+  
+  // 显示封面大图模态框
+  showCoverModal(coverImage.src);
+  
+  // 恢复原始状态
+  setTimeout(() => {
+    coverImage.style.transform = 'scale(1)';
+    coverImage.style.filter = 'brightness(0.95)';
+  }, 150);
+}
+
+// 创建涟漪效果
+function createRippleEffect(element) {
+  const ripple = document.createElement('div');
+  ripple.style.cssText = `
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    transform: scale(0);
+    animation: ripple 0.6s linear;
+    pointer-events: none;
+    z-index: 10;
+  `;
+  
+  // 设置涟漪位置和大小
+  const rect = element.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  ripple.style.width = ripple.style.height = size + 'px';
+  ripple.style.left = (rect.width / 2 - size / 2) + 'px';
+  ripple.style.top = (rect.height / 2 - size / 2) + 'px';
+  
+  // 添加CSS动画
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes ripple {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  element.style.position = 'relative';
+  element.appendChild(ripple);
+  
+  // 动画结束后移除元素
+  setTimeout(() => {
+    if (ripple.parentNode) {
+      ripple.parentNode.removeChild(ripple);
+    }
+    if (style.parentNode) {
+      style.parentNode.removeChild(style);
+    }
+  }, 600);
+}
+
+// 封面悬停提示
+document.addEventListener('DOMContentLoaded', function() {
+  const coverImage = document.getElementById('coverImage');
+  if (coverImage) {
+    // 添加悬停提示
+    coverImage.title = '点击更换封面图片';
+    
+    // 添加键盘支持
+    coverImage.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleCoverClick();
+      }
+    });
+    
+    // 设置tabindex以支持键盘导航
+    coverImage.setAttribute('tabindex', '0');
+  }
+});
+
+// 显示封面大图模态框
+function showCoverModal(imageSrc) {
+  const modal = new bootstrap.Modal(document.getElementById('coverModal'));
+  const modalImage = document.getElementById('coverModalImage');
+  
+  // 设置图片源
+  modalImage.src = imageSrc;
+  
+  // 添加加载动画
+  modalImage.style.opacity = '0';
+  modalImage.style.transform = 'scale(0.8)';
+  
+  // 显示模态框
+  modal.show();
+  
+  // 图片加载完成后显示动画
+  modalImage.onload = function() {
+    modalImage.style.transition = 'all 0.5s ease';
+    modalImage.style.opacity = '1';
+    modalImage.style.transform = 'scale(1)';
+  };
+  
+  // 模态框显示时添加爱心动画
+  document.getElementById('coverModal').addEventListener('shown.bs.modal', function() {
+    startHeartAnimation();
+  });
+}
+
+// 更换封面
+function changeCover() {
+  document.getElementById('coverInput').click();
+  bootstrap.Modal.getInstance(document.getElementById('coverModal')).hide();
+}
+
+// 添加爱心动画
+function addHeart() {
+  createFloatingHeart();
+}
+
+// 开始爱心动画循环
+function startHeartAnimation() {
+  // 每3秒自动添加一个爱心
+  const heartInterval = setInterval(() => {
+    createFloatingHeart();
+  }, 3000);
+  
+  // 模态框关闭时清除定时器
+  document.getElementById('coverModal').addEventListener('hidden.bs.modal', function() {
+    clearInterval(heartInterval);
+  });
+}
+
+// 创建浮动爱心
+function createFloatingHeart() {
+  const heartsContainer = document.getElementById('heartsContainer');
+  const heart = document.createElement('div');
+  
+  // 随机位置
+  const x = Math.random() * 100;
+  const y = Math.random() * 100;
+  
+  heart.innerHTML = '❤️';
+  heart.style.cssText = `
+    position: absolute;
+    left: ${x}%;
+    top: ${y}%;
+    font-size: ${20 + Math.random() * 20}px;
+    color: #ff6b6b;
+    pointer-events: none;
+    z-index: 20;
+    animation: floatHeart 3s ease-out forwards;
+    transform: translate(-50%, -50%);
+  `;
+  
+  // 添加CSS动画
+  if (!document.getElementById('heartAnimation')) {
+    const style = document.createElement('style');
+    style.id = 'heartAnimation';
+    style.textContent = `
+      @keyframes floatHeart {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(0.5);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.2);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(1) translateY(-100px);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  heartsContainer.appendChild(heart);
+  
+  // 3秒后移除爱心元素
+  setTimeout(() => {
+    if (heart.parentNode) {
+      heart.parentNode.removeChild(heart);
+    }
+  }, 3000);
+}
+
+// 点击图片区域添加爱心
+document.addEventListener('DOMContentLoaded', function() {
+  const coverModalBody = document.getElementById('coverModalBody');
+  if (coverModalBody) {
+    coverModalBody.addEventListener('click', function(e) {
+      if (e.target.id === 'coverModalImage') {
+        createFloatingHeart();
+      }
+    });
+  }
+});
+
+// 美观的删除确认弹框
+function showDeleteConfirm(message, deleteUrl, formData = null) {
+  const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+  const messageEl = document.getElementById('deleteConfirmMessage');
+  const confirmBtn = document.getElementById('confirmDeleteBtn');
+  
+  // 设置删除消息
+  messageEl.textContent = message;
+  
+  // 清除之前的事件监听器
+  const newConfirmBtn = confirmBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+  
+  // 添加确认删除事件
+  newConfirmBtn.addEventListener('click', function() {
+    if (formData) {
+      // 如果有表单数据，创建隐藏表单提交
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = deleteUrl;
+      
+      // 添加CSRF token（如果需要）
+      const csrfToken = document.querySelector('meta[name="csrf-token"]');
+      if (csrfToken) {
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = csrfToken.getAttribute('content');
+        form.appendChild(csrfInput);
+      }
+      
+      // 添加其他表单数据
+      for (const [key, value] of Object.entries(formData)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      }
+      
+      document.body.appendChild(form);
+      form.submit();
+    } else {
+      // 直接跳转到删除URL
+      window.location.href = deleteUrl;
+    }
+    
+    // 关闭模态框
+    modal.hide();
+  });
+  
+  // 显示模态框
+  modal.show();
+}
+
+// 替换原生confirm函数
+function confirmDelete(message, deleteUrl, formData = null) {
+  return new Promise((resolve) => {
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    const messageEl = document.getElementById('deleteConfirmMessage');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const cancelBtn = document.querySelector('#deleteConfirmModal .btn-outline-secondary');
+    
+    // 设置删除消息
+    messageEl.textContent = message;
+    
+    // 清除之前的事件监听器
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    
+    // 确认删除
+    newConfirmBtn.addEventListener('click', function() {
+      modal.hide();
+      resolve(true);
+    });
+    
+    // 取消删除
+    newCancelBtn.addEventListener('click', function() {
+      modal.hide();
+      resolve(false);
+    });
+    
+    // 显示模态框
+    modal.show();
+  });
+}
+
+// 主题切换功能
+document.addEventListener('DOMContentLoaded', function() {
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIcon = document.getElementById('themeIcon');
+  const body = document.body;
+  
+  // 获取保存的主题，默认为浅色主题
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  
+  // 应用保存的主题
+  if (savedTheme === 'dark') {
+    body.setAttribute('data-theme', 'dark');
+    themeIcon.className = 'bi bi-moon';
+  } else {
+    body.setAttribute('data-theme', 'light');
+    themeIcon.className = 'bi bi-sun';
+  }
+  
+  // 主题切换事件
+  themeToggle.addEventListener('click', function() {
+    const currentTheme = body.getAttribute('data-theme');
+    
+    if (currentTheme === 'dark') {
+      // 切换到浅色主题
+      body.setAttribute('data-theme', 'light');
+      themeIcon.className = 'bi bi-sun';
+      localStorage.setItem('theme', 'light');
+    } else {
+      // 切换到深色主题
+      body.setAttribute('data-theme', 'dark');
+      themeIcon.className = 'bi bi-moon';
+      localStorage.setItem('theme', 'dark');
+    }
+  });
+});
+</script>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border: none; border-radius: 12px; overflow: hidden;">
+      <div class="modal-header border-0 text-center" style="background: linear-gradient(135deg, #ff6b6b, #ff8e8e); color: white; padding: 16px 20px 12px;">
+        <div class="mx-auto">
+          <i class="bi bi-exclamation-triangle-fill" style="font-size: 32px; margin-bottom: 8px; display: block;"></i>
+          <h5 class="modal-title mb-0" id="deleteConfirmModalLabel">确认删除</h5>
+        </div>
+      </div>
+      <div class="modal-body text-center" style="padding: 16px 20px;">
+        <p class="mb-2" style="font-size: 14px; color: #666;" id="deleteConfirmMessage">确定要删除这个项目吗？</p>
+        <div class="alert alert-warning d-flex align-items-center" style="border: none; background: #fff3cd; border-radius: 6px; padding: 8px 12px;">
+          <i class="bi bi-info-circle me-2" style="font-size: 12px;"></i>
+          <small style="font-size: 12px;">删除后无法恢复</small>
+        </div>
+      </div>
+      <div class="modal-footer border-0 justify-content-center" style="padding: 12px 20px 16px; gap: 8px;">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" style="border-radius: 6px; padding: 6px 16px;">
+          <i class="bi bi-x-circle me-1"></i>取消
+        </button>
+        <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteBtn" style="border-radius: 6px; padding: 6px 16px; background: linear-gradient(135deg, #ff6b6b, #ff5252); border: none;">
+          <i class="bi bi-trash me-1"></i>删除
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 封面大图模态框 -->
+<div class="modal fade" id="coverModal" tabindex="-1" aria-labelledby="coverModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content" style="background: #000;">
+      <div class="modal-header border-0">
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body d-flex align-items-center justify-content-center p-0 position-relative" id="coverModalBody">
+        <img id="coverModalImage" src="" alt="封面大图" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+        <!-- 爱心动画容器 -->
+        <div id="heartsContainer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></div>
+      </div>
+      <div class="modal-footer border-0 justify-content-center">
+        <button type="button" class="btn btn-outline-light btn-sm" onclick="changeCover()">
+          <i class="bi bi-camera me-2"></i>更换封面
+        </button>
+        <button type="button" class="btn btn-outline-light btn-sm" onclick="addHeart()">
+          <i class="bi bi-heart me-2"></i>添加爱心
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

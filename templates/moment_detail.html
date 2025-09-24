@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+
+{% block extra_styles %}
+<style>
+html, body { overflow-x: hidden; }
+.detail-wrap { max-width: 880px; margin: 0 auto; }
+/* 自定义样式优化 */
+.card {
+    border: none;
+    border-radius: 12px;
+}
+
+.btn-group .btn {
+    border-radius: 6px;
+}
+
+.btn-group .btn:not(:last-child) {
+    margin-right: 8px;
+}
+.detail-card { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); overflow:hidden; border:1px solid #f1f3f5; }
+.figure-box { position:relative; width:100%; max-width:100%; height: min(92vw, 40vh); background:#f5f7fa; overflow:hidden; box-sizing:border-box; margin: 0 auto; }
+.figure-box img { width:100%; max-width:100%; height:100%; object-fit: contain; display:block; }
+@media (min-width: 768px) {
+  .figure-box { height: min(70vw, 60vh); }
+}
+.time-badge { position:absolute; right:12px; bottom:12px; background:rgba(0,0,0,0.55); color:#fff; font-size:12px; padding:4px 10px; border-radius:999px; display:flex; align-items:center; gap:6px; }
+.detail-body { padding: 14px 16px 18px; }
+.meta-row { display:flex; gap:10px; align-items:center; margin-bottom:8px; color:#8a8a8a; font-size:12px; }
+.meta-dot { width:4px; height:4px; border-radius:50%; background:#ced4da; }
+.title { font-size:16px; font-weight:600; color:#222; margin:0 0 8px; }
+.detail-text { white-space:pre-wrap; word-break:break-word; font-size:15px; line-height:1.85; color:#2b2b2b; }
+.detail-actions { 
+    display:flex; 
+    gap:12px; 
+    justify-content:flex-end; 
+    margin-top:16px; 
+    padding: 12px 0;
+    border-top: 1px solid #f1f3f5;
+}
+.arrow-nav { 
+    display:flex; 
+    justify-content:space-between; 
+    margin-top:16px; 
+    padding: 12px 0;
+    border-top: 1px solid #f1f3f5;
+}
+.arrow-nav .btn { 
+    padding:8px 16px; 
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+.arrow-nav .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-10">
+      <!-- 顶部操作栏 - 更优雅的设计 -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="{{ url_for('moments') }}" class="btn btn-link text-muted text-decoration-none">
+          <i class="bi bi-arrow-left me-1"></i>返回
+        </a>
+        <div class="dropdown">
+          <button class="btn btn-link text-muted" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-three-dots-vertical"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <a class="dropdown-item" href="{{ url_for('edit_moment', moment_id=moment.id) }}">
+                <i class="bi bi-pencil me-2"></i>编辑
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <button type="button" class="dropdown-item text-danger" onclick="showDeleteConfirm('确定删除此时光吗？', '{{ url_for('delete_moment', moment_id=moment.id) }}', {})">
+                <i class="bi bi-trash me-2"></i>删除
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 主要内容卡片 -->
+      <div class="card shadow-sm">
+        <!-- 卡片内容 - 文字内容在顶部 -->
+        <div class="card-body">
+          <!-- 时间信息 -->
+          <div class="d-flex align-items-center mb-3">
+            <i class="bi bi-calendar3 me-2 text-muted"></i>
+            <span class="text-muted">{{ moment.timestamp.strftime('%Y-%m-%d') }}</span>
+            <span class="mx-2 text-muted">•</span>
+            {% set weekdays = ['周日','周一','周二','周三','周四','周五','周六'] %}
+            <span class="text-muted">{{ weekdays[moment.timestamp.strftime('%w')|int] }}</span>
+          </div>
+          
+          <!-- 文字内容 -->
+          {% if moment.content %}
+          <div class="mb-4">
+            <p class="card-text fs-5 lh-base">{{ moment.content }}</p>
+          </div>
+          {% else %}
+          <div class="mb-4">
+            <p class="text-muted fst-italic">（无文字描述）</p>
+          </div>
+          {% endif %}
+        </div>
+        
+        <!-- 媒体内容 -->
+        {% if moment.video_path %}
+        <div class="position-relative" style="background: #000; min-height: 300px;">
+          <video src="{{ url_for('static', filename=moment.video_path) }}" class="w-100" style="height: 400px; object-fit: contain;" controls playsinline></video>
+          <span class="badge bg-dark position-absolute bottom-0 end-0 m-3">
+            <i class="bi bi-clock me-1"></i>{{ moment.timestamp.strftime('%H:%M') }}
+          </span>
+          <!-- 收藏和分享按钮 - 右上角 -->
+          <div class="position-absolute top-0 end-0 m-3 d-flex gap-2">
+            <button class="btn btn-sm {% if moment.is_favorite %}btn-danger{% else %}btn-light{% endif %} shadow-sm" id="favoriteBtn" onclick="toggleFavorite({{ moment.id }})" style="border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+              <i class="bi bi-heart{% if moment.is_favorite %}-fill{% endif %}" id="favoriteIcon"></i>
+            </button>
+            <button class="btn btn-light btn-sm shadow-sm" onclick="shareMoment({{ moment.id }})" style="border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+              <i class="bi bi-share"></i>
+            </button>
+          </div>
+        </div>
+        {% elif moment.image_path or moment.thumb_path %}
+        <div class="position-relative">
+          <img src="{{ url_for('static', filename=moment.image_path or moment.thumb_path) }}" class="card-img-top" style="height: 400px; object-fit: cover;" alt="时光图片">
+          <span class="badge bg-dark position-absolute bottom-0 end-0 m-3">
+            <i class="bi bi-clock me-1"></i>{{ moment.timestamp.strftime('%H:%M') }}
+          </span>
+          <!-- 收藏和分享按钮 - 右上角 -->
+          <div class="position-absolute top-0 end-0 m-3 d-flex gap-2">
+            <button class="btn btn-sm {% if moment.is_favorite %}btn-danger{% else %}btn-light{% endif %} shadow-sm" id="favoriteBtn" onclick="toggleFavorite({{ moment.id }})" style="border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+              <i class="bi bi-heart{% if moment.is_favorite %}-fill{% endif %}" id="favoriteIcon"></i>
+            </button>
+            <button class="btn btn-light btn-sm shadow-sm" onclick="shareMoment({{ moment.id }})" style="border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+              <i class="bi bi-share"></i>
+            </button>
+          </div>
+        </div>
+        {% endif %}
+        
+        <!-- 导航按钮区域 -->
+        <div class="card-body pt-3">
+          
+          <!-- 导航按钮 - 更优雅的设计 -->
+          <div class="d-flex justify-content-center gap-3 pt-3 border-top">
+            {% if prev_m %}
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('moment_detail', moment_id=prev_m.id) }}">
+              <i class="bi bi-chevron-left me-1"></i>上一条
+            </a>
+            {% else %}
+            <button class="btn btn-outline-secondary btn-sm" disabled>
+              <i class="bi bi-chevron-left me-1"></i>上一条
+            </button>
+            {% endif %}
+            
+            <span class="text-muted align-self-center">|</span>
+            
+            {% if next_m %}
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('moment_detail', moment_id=next_m.id) }}">
+              下一条<i class="bi bi-chevron-right ms-1"></i>
+            </a>
+            {% else %}
+            <button class="btn btn-outline-secondary btn-sm" disabled>
+              下一条<i class="bi bi-chevron-right ms-1"></i>
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// 收藏功能
+async function toggleFavorite(momentId) {
+  try {
+    const response = await fetch(`/moments/${momentId}/favorite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      const favoriteIcon = document.getElementById('favoriteIcon');
+      const favoriteText = document.getElementById('favoriteText');
+      const favoriteBtn = document.getElementById('favoriteBtn');
+      
+      if (data.is_favorite) {
+        favoriteIcon.className = 'bi bi-heart-fill';
+        favoriteBtn.classList.remove('btn-light');
+        favoriteBtn.classList.add('btn-danger');
+      } else {
+        favoriteIcon.className = 'bi bi-heart';
+        favoriteBtn.classList.remove('btn-danger');
+        favoriteBtn.classList.add('btn-light');
+      }
+      
+      // 显示提示
+      showToast(data.is_favorite ? '已添加到收藏' : '已取消收藏');
+    }
+  } catch (error) {
+    console.error('收藏操作失败:', error);
+    showToast('操作失败，请重试');
+  }
+}
+
+// 分享功能
+async function shareMoment(momentId) {
+  try {
+    const response = await fetch(`/moments/${momentId}/share`);
+    const data = await response.json();
+    
+    if (data.success) {
+      // 检查是否支持Web Share API
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: data.title,
+            text: data.description,
+            url: data.share_url
+          });
+        } catch (error) {
+          // 用户取消分享或分享失败，复制链接到剪贴板
+          await copyToClipboard(data.share_url);
+        }
+      } else {
+        // 不支持Web Share API，复制链接到剪贴板
+        await copyToClipboard(data.share_url);
+      }
+    }
+  } catch (error) {
+    console.error('分享失败:', error);
+    showToast('分享失败，请重试');
+  }
+}
+
+// 复制到剪贴板
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('链接已复制到剪贴板');
+  } catch (error) {
+    // 降级方案：使用传统方法
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    showToast('链接已复制到剪贴板');
+  }
+}
+
+// 显示提示消息
+function showToast(message) {
+  // 创建提示元素
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #333;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    z-index: 9999;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  `;
+  
+  document.body.appendChild(toast);
+  
+  // 显示动画
+  setTimeout(() => {
+    toast.style.transform = 'translateX(0)';
+  }, 100);
+  
+  // 自动隐藏
+  setTimeout(() => {
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      document.body.removeChild(toast);
+    }, 300);
+  }, 2000);
+}
+</script>
+{% endblock %}

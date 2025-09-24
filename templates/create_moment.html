@@ -1,0 +1,566 @@
+{% extends 'base.html' %}
+
+{% block extra_styles %}
+<style>
+/* 简洁优雅的设计 */
+.moment-create-container {
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    min-height: 100vh;
+    padding: 40px 0;
+    position: relative;
+}
+
+.moment-card {
+    border: 5px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--shadow-lg) !important;
+    background: var(--bg-primary) !important;
+    position: relative;
+    overflow: hidden;
+    margin: 20px !important;
+    transition: all 0.3s ease;
+}
+
+.moment-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px 16px 0 0;
+    padding: 32px 40px 28px 40px;
+    text-align: center;
+    border-bottom: none;
+    color: white;
+    position: relative;
+}
+
+.moment-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    border-radius: 20px 20px 0 0;
+    pointer-events: none;
+}
+
+.moment-header h5 {
+    margin: 0 0 20px 0;
+    font-weight: 600;
+    font-size: 1.5rem;
+    color: white;
+    letter-spacing: -0.025em;
+    padding: 0 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.moment-header p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+    font-weight: 400;
+    padding: 0 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.moment-body {
+    padding: 32px 40px;
+}
+
+/* 简洁的上传区域 */
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 16px;
+    padding: 64px 40px;
+    text-align: center;
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+.upload-area:hover {
+    border-color: #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.upload-area.dragover {
+    border-color: #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+    border-style: solid;
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    font-size: 48px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    transition: all 0.2s ease;
+}
+
+.upload-area:hover .upload-icon {
+    color: #3b82f6;
+    transform: scale(1.05);
+}
+
+/* 预览区域 */
+.image-preview-container {
+    width: 200px !important; /* 设置合适的固定宽度 */
+    height: 200px !important; /* 设置合适的固定高度 */
+    margin: 20px auto 0 auto !important; /* 强制居中显示 */
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    background: var(--bg-secondary);
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative;
+}
+
+.image-preview {
+    width: 200px !important; /* 设置合适的固定宽度 */
+    height: 200px !important; /* 设置合适的固定高度 */
+    object-fit: cover; /* 使用cover确保填满容器 */
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    display: block !important;
+    margin: 0 auto !important; /* 强制居中显示 */
+}
+
+.image-preview:hover {
+    transform: scale(1.02);
+}
+
+/* 移除媒体按钮样式 */
+#removeImage {
+    border-radius: 20px !important;
+    padding: 8px 16px !important;
+    font-size: 0.85rem !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    background: var(--bg-secondary) !important;
+    transition: all 0.3s ease !important;
+    box-shadow: var(--shadow) !important;
+}
+
+#removeImage:hover {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+/* 按钮组样式优化 */
+.d-flex.justify-content-between {
+    margin-top: 32px !important;
+    margin-bottom: 24px !important;
+    padding: 0 8px !important;
+}
+
+.d-flex.justify-content-between .btn {
+    border-radius: 20px !important;
+    padding: 8px 16px !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    transition: all 0.3s ease !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.d-flex.justify-content-between .btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.d-flex.justify-content-between .btn-outline-secondary:hover {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.d-flex.justify-content-between .btn-primary:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* 强制限制图片尺寸 */
+#previewImg {
+    width: 250px !important;
+    height: 250px !important;
+    max-width: 250px !important;
+    max-height: 250px !important;
+    object-fit: cover !important;
+    border-radius: 15px !important;
+    display: block !important;
+    margin: 0 auto !important;
+}
+
+/* 简洁的表单样式 */
+.form-control {
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px 28px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.form-control::placeholder {
+    color: #94a3b8;
+}
+
+.form-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+    font-size: 1rem;
+    display: block;
+    padding-left: 8px;
+}
+
+/* 简洁的按钮样式 */
+.btn-publish {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 18px 40px;
+    font-weight: 600;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
+    font-size: 16px;
+    color: white;
+    margin-top: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-publish::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-publish:hover::before {
+    left: 100%;
+}
+
+.btn-publish:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-publish:active {
+    transform: translateY(0);
+}
+
+.btn-outline-secondary {
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 40px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    background: white;
+    color: #6b7280;
+    margin-top: 32px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-outline-secondary:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #374151;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* 移除按钮 */
+.btn-outline-danger {
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+.btn-outline-danger:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .moment-create-container {
+        padding: 20px 0;
+    }
+    
+    .moment-header {
+        padding: 24px 32px 20px 32px !important;
+    }
+    
+    .moment-header h5 {
+        font-size: 1.3rem;
+        margin-bottom: 16px;
+        padding: 0 12px;
+    }
+    
+    .moment-header p {
+        padding: 0 12px;
+    }
+    
+    .moment-body {
+        padding: 24px 32px !important;
+    }
+    
+    .upload-area {
+        padding: 48px 32px;
+    }
+    
+    .upload-icon {
+        font-size: 40px;
+        margin-bottom: 20px;
+    }
+    
+    .image-preview-container {
+        width: 150px !important; /* 移动端设置更小的尺寸 */
+        height: 150px !important; /* 移动端设置更小的尺寸 */
+        margin: 20px auto 0 auto !important; /* 移动端强制居中显示 */
+    }
+    
+    .image-preview {
+        width: 150px !important; /* 移动端设置更小的尺寸 */
+        height: 150px !important; /* 移动端设置更小的尺寸 */
+        margin: 0 auto !important; /* 移动端强制居中显示 */
+    }
+    
+    .btn-publish {
+        width: 100%;
+        margin-top: 28px;
+        padding: 20px 32px;
+    }
+    
+    .d-flex.justify-content-between {
+        flex-direction: column !important;
+        gap: 12px !important;
+        align-items: center !important;
+        margin-top: 24px !important;
+        margin-bottom: 20px !important;
+    }
+    
+    .d-flex.justify-content-between .btn {
+        width: 100% !important;
+        max-width: 180px !important;
+        padding: 10px 20px !important;
+    }
+    
+    .btn-outline-secondary {
+        width: 100%;
+        margin-bottom: 20px;
+        padding: 20px 32px;
+    }
+}
+
+/* 简洁的动画效果 */
+.moment-card {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* 简洁的文字样式 */
+.upload-area p {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.upload-area small {
+    color: #94a3b8;
+    font-size: 0.875rem;
+}
+
+/* 状态样式 */
+.upload-area.loading {
+    opacity: 0.6;
+}
+
+.upload-area.success {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="moment-create-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-8 col-lg-6">
+                <div class="moment-card" style="border: 5px solid #e2e8f0 !important; border-radius: 25px !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; background: white !important; margin: 0px !important; padding: 0 !important;">
+                    <div class="moment-header" style="padding: 25px 40px 28px 40px !important;">
+                        <h5>记录美好时光</h5>
+                        <p>分享宝宝的珍贵瞬间</p>
+                    </div>
+                    <div class="moment-body" style="padding: 0px 15px !important;">
+                    <form action="{{ url_for('create_moment') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="content" class="form-label">分享这一刻</label>
+                            <textarea name="content" id="content" class="form-control" rows="4" 
+                                      placeholder="记录下宝宝的美好瞬间..." required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">添加媒体（可选）</label>
+                            <div class="upload-area" id="uploadArea">
+                                <div class="upload-icon">
+                                    <i class="bi bi-cloud-upload"></i>
+                                </div>
+                                <p class="mb-2">点击选择或拖拽文件</p>
+                                <small class="text-muted">支持图片和视频，最大 15MB</small>
+                                <input type="file" name="media" id="mediaInput" accept="image/*,video/mp4" class="d-none">
+                            </div>
+                            <div id="imagePreview" class="text-center" style="display: none;">
+                                <div class="image-preview-container" style="margin: 20px auto 0 auto !important;">
+                                    <img id="previewImg" class="image-preview" alt="预览" style="display:none;width:200px !important;height:200px !important;object-fit:cover !important;margin:0 auto !important;">
+                                    <video id="previewVideo" style="width:250px !important;height:250px !important;display:none;border-radius:8px;background:#000;object-fit:cover;margin:0 auto !important;" controls></video>
+                                </div>
+                                <div class="mt-3 text-center">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="removeImage" style="border-radius: 20px; padding: 8px 16px; font-size: 0.85rem; border: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; transition: all 0.3s ease;">
+                                        <i class="bi bi-x-circle" style="margin-right: 4px;"></i> 更换媒体
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-4 mb-4" style="padding: 0 8px;">
+                            <a href="{{ url_for('moments') }}" class="btn btn-outline-secondary" style="border-radius: 20px; padding: 8px 16px; font-weight: 500; border: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; font-size: 0.9rem;">
+                                <i class="bi bi-arrow-left me-1"></i>返回
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-publish" style="border-radius: 20px; padding: 8px 16px; font-weight: 500; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; font-size: 0.9rem; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);">
+                                <i class="bi bi-send me-1"></i>发布
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    const mediaInput = document.getElementById('mediaInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const previewVideo = document.getElementById('previewVideo');
+    const removeBtn = document.getElementById('removeImage');
+
+    // 点击上传区域
+    uploadArea.addEventListener('click', () => {
+        mediaInput.click();
+    });
+
+    // 拖拽上传
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFile(files[0]);
+        }
+    });
+
+    // 文件选择
+    mediaInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+        }
+    });
+
+    // 移除媒体
+    removeBtn.addEventListener('click', () => {
+        mediaInput.value = '';
+        imagePreview.style.display = 'none';
+        uploadArea.style.display = 'block';
+        previewImg.src = '';
+        previewVideo.src = '';
+        previewImg.style.display = 'none';
+        previewVideo.style.display = 'none';
+    });
+
+    function handleFile(file) {
+        // 类型检查
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type === 'video/mp4';
+        if (!isImage && !isVideo) {
+            alert('只支持图片或MP4视频');
+            return;
+        }
+
+        // 大小检查 (15MB)
+        if (file.size > 15 * 1024 * 1024) {
+            alert('文件大小不能超过 15MB');
+            return;
+        }
+
+        // 预览
+        imagePreview.style.display = 'block';
+        uploadArea.style.display = 'none';
+        previewImg.style.display = 'none';
+        previewVideo.style.display = 'none';
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (isImage) {
+                previewImg.src = e.target.result;
+                previewImg.style.display = 'block';
+            } else if (isVideo) {
+                previewVideo.src = e.target.result;
+                previewVideo.style.display = 'block';
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+});
+</script>
+{% endblock %}

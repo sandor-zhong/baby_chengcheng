@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">宝宝资料</h5>
+        <form class="row g-2" action="{{ url_for('update_profile') }}" method="post">
+          <div class="col-12">
+            <label class="form-label">昵称</label>
+            <input name="baby_name" class="form-control" placeholder="宝宝昵称" value="{{ baby_name }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label">生日</label>
+            <input name="baby_birth" class="form-control" type="date" placeholder="YYYY-MM-DD" value="{{ baby_birth }}">
+          </div>
+          <div class="col-12">
+            <div class="text-muted">当前年龄：{{ baby_age_text or '未设置生日' }}</div>
+          </div>
+          <div class="col-12 d-grid mt-2">
+            <button class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">头像</h5>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <img src="{{ avatar_url }}" alt="avatar" class="rounded-circle" style="width:72px;height:72px;object-fit:cover;box-shadow:0 0 0 2px rgba(0,0,0,.05)">
+          <form action="{{ url_for('upload_avatar') }}" method="post" enctype="multipart/form-data">
+            <input type="file" name="avatar" accept="image/*" class="form-control">
+            <div class="form-text">支持 JPG/PNG，最大 4MB</div>
+            <div class="mt-2"><button class="btn btn-outline-secondary">上传新头像</button></div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body">
+        <h5 class="card-title">封面（支持裁剪）</h5>
+        <div class="mb-2">
+          <img id="coverPreview" src="{{ cover_url }}" alt="cover" class="img-fluid rounded" style="max-height:180px;object-fit:cover;width:100%">
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <input type="file" id="coverFile" accept="image/*" class="form-control" style="max-width:300px">
+          <button id="startCropBtn" class="btn btn-outline-primary" disabled>开始裁剪</button>
+          <button id="uploadCroppedBtn" class="btn btn-primary" disabled>保存裁剪并上传</button>
+        </div>
+        <div class="form-text mt-1">建议横图，裁剪比例 16:9，导出最大宽度 1920</div>
+      </div>
+    </div>
+
+    <div class="text-center mt-3">
+      <a class="btn btn-link" href="{{ url_for('index') }}">返回首页</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script>
+(function(){
+  const fileInput = document.getElementById('coverFile');
+  const startBtn = document.getElementById('startCropBtn');
+  const uploadBtn = document.getElementById('uploadCroppedBtn');
+  const preview = document.getElementById('coverPreview');
+  let cropper = null;
+  let chosenBlobUrl = null;
+
+  fileInput.addEventListener('change', function(){
+    const f = this.files && this.files[0];
+    if (!f) return;
+    if (chosenBlobUrl) URL.revokeObjectURL(chosenBlobUrl);
+    chosenBlobUrl = URL.createObjectURL(f);
+    preview.src = chosenBlobUrl;
+    startBtn.disabled = false;
+  });
+
+  startBtn.addEventListener('click', function(){
+    if (cropper) { cropper.destroy(); cropper = null; }
+    cropper = new Cropper(preview, {
+      aspectRatio: 16/9,
+      viewMode: 1,
+      autoCropArea: 1,
+      movable: false,
+      zoomable: true,
+      background: false
+    });
+    uploadBtn.disabled = false;
+  });
+
+  uploadBtn.addEventListener('click', async function(){
+    if (!cropper) return;
+    // 导出裁剪结果，最大宽度 1920
+    const data = cropper.getCroppedCanvas({
+      maxWidth: 1920,
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high'
+    });
+    if (!data) return;
+    data.toBlob(async (blob)=>{
+      const fd = new FormData();
+      fd.append('cover', blob, 'cover.jpg');
+      try {
+        const resp = await fetch('{{ url_for('upload_cover') }}', { method: 'POST', body: fd });
+        if (resp.redirected) { window.location.href = resp.url; return; }
+        if (resp.ok) { location.reload(); }
+        else { alert('上传失败'); }
+      } catch (e) { alert('网络错误'); }
+    }, 'image/jpeg', 0.9);
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,734 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+/* 疫苗标签页样式 */
+.timeline {
+  position: relative;
+  padding-left: 30px;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: -25px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-content {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border-left: 3px solid #dee2e6;
+}
+
+.timeline-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: -19px;
+  top: 17px;
+  width: 2px;
+  height: calc(100% + 20px);
+  background: #dee2e6;
+}
+
+/* 倒计时样式 */
+.vaccine-countdown {
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.vaccine-countdown.urgent {
+  background: #f8d7da;
+  color: #721c24;
+  animation: pulse 2s infinite;
+}
+
+.vaccine-countdown.warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.vaccine-countdown.normal {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+</style>
+
+<ul class="nav nav-tabs" id="mainTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <a class="nav-link active" id="feed-tab" data-bs-toggle="tab" href="#feed-pane" role="tab" aria-controls="feed-pane" aria-selected="true">🍼 喂奶</a>
+  </li>
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" id="diaper-tab" data-bs-toggle="tab" href="#diaper-pane" role="tab" aria-controls="diaper-pane" aria-selected="false">💩 换尿布</a>
+  </li>
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" id="vaccine-tab" data-bs-toggle="tab" href="#vaccine-pane" role="tab" aria-controls="vaccine-pane" aria-selected="false">💉 疫苗</a>
+  </li>
+</ul>
+
+<div class="tab-content mt-3" id="mainTabsContent">
+  <div class="tab-pane fade show active" id="feed-pane" role="tabpanel" aria-labelledby="feed-tab" tabindex="0">
+    <div class="card mb-2">
+      <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h6 class="m-0">🍼 喂奶</h6>
+          <small class="text-muted">距上次 <strong id="feedElapsed">{{ feed_elapsed or '--:--' }}</strong></small>
+        </div>
+        <small class="text-muted d-block mb-2">上次：<span id="lastFeedText">{{ last_feed_time or '还没有记录' }}</span></small>
+
+
+        <form action="{{ url_for('record_feed') }}" method="post" class="row g-2" onsubmit="this.querySelector('button[type=submit]').disabled=true;">
+<div class="col-6">
+            <input name="amount_ml" type="number" class="form-control form-control-sm" placeholder="毫升 (ml)" min="10" max="1000" required>
+          </div>
+          <div class="col-6 d-flex gap-2">
+            <button class="btn btn-success btn-sm flex-fill" type="submit">记录</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="undoBtn">撤销</button>
+          </div>
+          <div class="col-12">
+            <div class="d-flex flex-wrap gap-1 mt-1" id="presetContainer"></div>
+            <div class="d-flex align-items-center gap-3 mt-1">
+              <button id="editPresetsBtn" class="btn btn-link btn-sm p-0" type="button">编辑选项</button>
+            </div>
+            <div id="presetEditor" class="d-none mt-1">
+              <div class="d-flex gap-2 flex-wrap">
+                <input type="number" class="form-control form-control-sm" style="width:72px" id="p0" min="1" placeholder="ml">
+                <input type="number" class="form-control form-control-sm" style="width:72px" id="p1" min="1" placeholder="ml">
+                <input type="number" class="form-control form-control-sm" style="width:72px" id="p2" min="1" placeholder="ml">
+                <input type="number" class="form-control form-control-sm" style="width:72px" id="p3" min="1" placeholder="ml">
+                <button id="savePresetsBtn" class="btn btn-primary btn-sm" type="button">保存</button>
+                <button id="cancelPresetsBtn" class="btn btn-outline-secondary btn-sm" type="button">取消</button>
+              </div>
+              <small class="text-muted">可编辑常用毫升值，保存后按钮会更新并记住。</small>
+</div>
+</div>
+</form>
+
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('history') }}" class="btn btn-outline-secondary btn-sm">查看历史</a>
+            <button id="refreshBtn" class="btn btn-outline-info btn-sm" onclick="location.reload()">刷新</button>
+          </div>
+          <small class="text-muted">今日 <strong>{{ today_feed_total_ml }} ml</strong> · <strong>{{ today_feed_count }}</strong> 次</small>
+        </div>
+</div>
+</div>
+</div>
+
+  <div class="tab-pane fade" id="diaper-pane" role="tabpanel" aria-labelledby="diaper-tab" tabindex="0">
+    <div class="card mb-2">
+      <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <h6 class="m-0">💩 换尿布</h6>
+          <small class="text-muted">距上次 <strong id="diaperElapsed">{{ diaper_elapsed or '--:--' }}</strong></small>
+        </div>
+        <small class="text-muted d-block mb-2">上次：<span id="lastDiaperText">{{ last_diaper_time or '还没有记录' }}</span></small>
+        <form action="{{ url_for('record_diaper') }}" method="post" class="row g-2">
+          <div class="col-12">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="diaper_kind" id="kind_pee" value="pee">
+                <label class="form-check-label" for="kind_pee">尿</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="diaper_kind" id="kind_poop" value="poop">
+                <label class="form-check-label" for="kind_poop">便</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="diaper_kind" id="kind_both" value="both">
+                <label class="form-check-label" for="kind_both">尿+便</label>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary w-100">记录换尿布</button>
+          </div>
+        </form>
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('history') }}" class="btn btn-outline-secondary btn-sm">查看历史</a>
+            <button class="btn btn-outline-info btn-sm" onclick="location.reload()">刷新</button>
+          </div>
+          <small class="text-muted">今日 <strong>{{ today_diaper_count }}</strong> 次</small>
+        </div>
+        <hr>
+        <h6 class="card-title mb-2">📈 最近换尿布趋势（14天）</h6>
+        <div id="diaperChartWrap" style="height:220px;">
+          <canvas id="diaperChart" style="width:100%;height:100%"></canvas>
+        </div>
+        <div id="diaperChartEmpty" class="text-muted small" style="display:none;">暂无记录</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 疫苗标签页 -->
+  <div class="tab-pane fade" id="vaccine-pane" role="tabpanel" aria-labelledby="vaccine-tab" tabindex="0">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">💉 疫苗接种</h5>
+        
+        <!-- 下次接种提醒 -->
+        <div class="alert alert-info mb-3">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-bell me-2"></i>
+            <div>
+              <strong>乙肝疫苗第二针</strong>
+              <br>
+              <small>预计接种时间：<span id="nextVaccineDate">计算中...</span></small>
+              <br>
+              <small class="text-warning">倒计时：<span id="vaccineCountdown" class="vaccine-countdown warning">还有 3 天</span></small>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 接种计划时间线 -->
+        <div class="mb-3">
+          <h6 class="text-muted mb-2">接种计划</h6>
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-marker bg-success"></div>
+              <div class="timeline-content">
+                <strong>出生时</strong>
+                <p class="mb-1">乙肝疫苗第一针、卡介苗</p>
+                <small class="text-success">✅ 已完成</small>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-marker bg-warning"></div>
+              <div class="timeline-content">
+                <strong>1个月 (<span id="hepatitisDate">计算中...</span>)</strong>
+                <p class="mb-1">乙肝疫苗第二针</p>
+                <small class="text-warning">⏰ 还有 <span id="hepatitisCountdown" class="vaccine-countdown warning">3 天</span></small>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-marker bg-light"></div>
+              <div class="timeline-content">
+                <strong>2个月 (<span id="pentavalentDate">计算中...</span>)</strong>
+                <p class="mb-1">五联疫苗第一针</p>
+                <small class="text-muted">📅 还有 <span id="pentavalentCountdown" class="vaccine-countdown normal">34 天</span></small>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary btn-sm" onclick="markVaccinated()">
+            <i class="bi bi-check-circle me-1"></i>标记已接种
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="viewVaccineHistory()">
+            <i class="bi bi-clock-history me-1"></i>查看历史
+          </button>
+        </div>
+</div>
+</div>
+</div>
+</div>
+
+
+
+
+
+<div id="feedTrendSection" class="row mt-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-title mb-2">🧭 最近喂奶趋势</h6>
+        <div id="feedChartWrap" style="height:240px;">
+          <canvas id="feedChart" style="width:100%;height:100%"></canvas>
+        </div>
+        <div id="feedChartEmpty" class="text-muted small" style="display:none;">暂无喂奶记录，先去上面记录几次吧～</div>
+        <div class="text-muted mt-2" style="font-size: 12px;">提示：点击横轴可左右滑动，纵轴为奶量（ml）</div>
+      </div>
+</div>
+</div>
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+// 实时更新：
+// 1) “距离上次”改为 时:分:秒，每秒更新
+// 2) “上次时间”在前端统一格式化为 HH:MM:SS（本地时区）
+function startElapsedTicker() {
+  const feedTs = {{ last_feed_ts|tojson }};
+  const diaperTs = {{ last_diaper_ts|tojson }};
+
+  function two(n){ return String(n).padStart(2,'0'); }
+  function fmtClock(d){ return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`; }
+  function fmtElapsedHMS(ms){
+    if (ms < 0 || isNaN(ms)) return '--:--:--';
+    const s = Math.floor(ms/1000);
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    const ss = s%60;
+    return `${two(h)}:${two(m)}:${two(ss)}`;
+  }
+
+  // 首次渲染：将"上次时间"统一渲染为 HH:MM:SS
+  if (feedTs) {
+    const d = new Date(feedTs); // feedTs 是北京时间，直接使用
+    const n = document.getElementById('lastFeedText');
+    if (n) n.textContent = fmtClock(d);
+  }
+  if (diaperTs) {
+    const d = new Date(diaperTs);
+    const n = document.getElementById('lastDiaperText');
+    if (n) n.textContent = fmtClock(d);
+  }
+
+  function tick(){
+    const now = Date.now();
+    if (feedTs){
+      const delta = now - Date.parse(feedTs);
+      const el = document.getElementById('feedElapsed');
+      if (el) el.textContent = fmtElapsedHMS(delta);
+    }
+    if (diaperTs){
+      const delta = now - Date.parse(diaperTs);
+      const el = document.getElementById('diaperElapsed');
+      if (el) el.textContent = fmtElapsedHMS(delta);
+    }
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+document.addEventListener('DOMContentLoaded', startElapsedTicker);
+// 加载最近喂奶数据并绘图
+async function loadFeedTrend() {
+  try {
+    const res = await fetch('/api/feed_series?limit=30', { cache: 'no-store' });
+    const json = await res.json();
+    const items = json.items || [];
+    if (!items.length) {
+      document.getElementById('feedChartWrap').style.display = 'none';
+      document.getElementById('feedChartEmpty').style.display = '';
+      return;
+    }
+    const labels = items.map(i => new Date(i.ts).toLocaleString());
+    const data = items.map(i => i.amount_ml || 0);
+
+    const ctx = document.getElementById('feedChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: '喂奶 (ml)',
+          data,
+          borderColor: '#0d6efd',
+          backgroundColor: 'rgba(13,110,253,0.15)',
+          tension: 0.25,
+          fill: true,
+          pointRadius: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'ml' } },
+          x: { ticks: { maxRotation: 30, minRotation: 0 } }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false }
+        }
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    const empty = document.getElementById('feedChartEmpty');
+    if (empty) { empty.textContent = '加载趋势失败，请刷新重试'; empty.style.display = ''; }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadFeedTrend);
+</script>
+
+<script>
+// 可编辑的常用毫升选项，本地存储
+function initEditablePresets(){
+  const container = document.getElementById('presetContainer');
+  const form = container ? container.closest('form') : null;
+  const key = 'feed_presets_ml_v1';
+  function getPresets(){
+    try{
+      const raw = localStorage.getItem(key);
+      const arr = raw ? JSON.parse(raw) : [30,40,50,60];
+      return (Array.isArray(arr) && arr.length) ? arr.slice(0,8) : [30,40,50,60];
+    }catch{return [30,40,50,60];}
+  }
+  function setPresets(arr){
+    const cleaned = (arr||[]).map(x=>parseInt(x,10)).filter(x=>!isNaN(x) && x>0);
+    const uniq = Array.from(new Set(cleaned)).slice(0,8);
+    localStorage.setItem(key, JSON.stringify(uniq.length?uniq:[30,40,50,60]));
+  }
+  function render(){
+    if(!container) return;
+    container.innerHTML = '';
+    const presets = getPresets();
+    presets.forEach(v => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-outline-secondary btn-sm';
+      btn.textContent = v + ' ml';
+      btn.addEventListener('click', ()=>{ if(form){ form.amount_ml.value = v; }});
+      container.appendChild(btn);
+    });
+  }
+  render();
+
+  const editBtn = document.getElementById('editPresetsBtn');
+  const editor = document.getElementById('presetEditor');
+  const saveBtn = document.getElementById('savePresetsBtn');
+  const cancelBtn = document.getElementById('cancelPresetsBtn');
+  function fillInputs(){
+    const vals = getPresets();
+    for(let i=0;i<4;i++){
+      const el = document.getElementById('p'+i);
+      if(el) el.value = vals[i]!==undefined ? vals[i] : '';
+    }
+  }
+  if(editBtn){
+    editBtn.addEventListener('click', ()=>{
+      if(editor){ editor.classList.toggle('d-none'); if(!editor.classList.contains('d-none')) fillInputs(); }
+    });
+  }
+  if(saveBtn){
+    saveBtn.addEventListener('click', ()=>{
+      const vals = [];
+      for(let i=0;i<4;i++){
+        const el = document.getElementById('p'+i);
+        if(el && el.value) vals.push(el.value);
+      }
+      setPresets(vals);
+      render();
+      if(editor) editor.classList.add('d-none');
+    });
+  }
+  if(cancelBtn){
+    cancelBtn.addEventListener('click', ()=>{ if(editor) editor.classList.add('d-none'); });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initEditablePresets);
+</script>
+<script>
+// 撤销按钮通过 fetch 提交，避免在表单内嵌套另一个表单导致 HTML 渲染错误
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('undoBtn');
+  if(!btn) return;
+  btn.addEventListener('click', async function(){
+    try{
+      const resp = await fetch('{{ url_for('undo_last') }}', { method: 'POST' });
+      if(resp.redirected) { window.location.href = resp.url; return; }
+      location.reload();
+    }catch(e){ location.reload(); }
+  });
+});
+</script>
+<script>
+// 换尿布趋势：按天统计（总次数/尿/便/尿+便），在切到“换尿布”页签时加载
+async function drawDiaperTrend() {
+  try {
+    const res = await fetch('/api/diaper_series?days=14', { cache: 'no-store' });
+    const json = await res.json();
+    const items = json.items || [];
+    if (!items.length) {
+      const wrap = document.getElementById('diaperChartWrap');
+      const empty = document.getElementById('diaperChartEmpty');
+      if (wrap) wrap.style.display = 'none';
+      if (empty) empty.style.display = '';
+      return;
+    }
+    const labels = items.map(i => i.day.slice(5)); // MM-DD
+    const total = items.map(i => i.total);
+    const pee = items.map(i => i.pee);
+    const poop = items.map(i => i.poop);
+    const both = items.map(i => i.both);
+    const ctx = document.getElementById('diaperChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: '总次数', data: total, backgroundColor: 'rgba(33,150,243,0.45)' },
+          { label: '尿', data: pee, backgroundColor: 'rgba(33,150,243,0.25)' },
+          { label: '便', data: poop, backgroundColor: 'rgba(76,175,80,0.35)' },
+          { label: '尿+便', data: both, backgroundColor: 'rgba(220,53,69,0.35)' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  } catch (e) { console.error(e); }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  const diaperTab = document.getElementById('diaper-tab');
+  if (!diaperTab) return;
+  // 切到换尿布时隐藏喂奶趋势
+  const feedTrend = document.getElementById('feedTrendSection');
+  const trigger = () => {
+    if (typeof Chart === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+      s.defer = true;
+      s.onload = drawDiaperTrend;
+      document.head.appendChild(s);
+    } else {
+      drawDiaperTrend();
+    }
+    if (feedTrend) feedTrend.style.display = 'none';
+  };
+  // bootstrap tab 事件
+  diaperTab.addEventListener('shown.bs.tab', trigger, { once: true });
+  // fallback：若未加载到 bootstrap
+  if (!(window.bootstrap && bootstrap.Tab)) {
+    diaperTab.addEventListener('click', trigger, { once: true });
+  }
+  // 切回喂奶时显示喂奶趋势
+  const feedTab = document.getElementById('feed-tab');
+  const showFeed = () => { if (feedTrend) feedTrend.style.display = ''; };
+  if (feedTab) {
+    feedTab.addEventListener('shown.bs.tab', showFeed);
+    if (!(window.bootstrap && bootstrap.Tab)) {
+      feedTab.addEventListener('click', showFeed);
+    }
+  }
+  
+  // 切换到疫苗时隐藏喂奶趋势
+  const vaccineTab = document.getElementById('vaccine-tab');
+  const hideFeed = () => { if (feedTrend) feedTrend.style.display = 'none'; };
+  if (vaccineTab) {
+    vaccineTab.addEventListener('shown.bs.tab', hideFeed);
+    if (!(window.bootstrap && bootstrap.Tab)) {
+      vaccineTab.addEventListener('click', hideFeed);
+    }
+  }
+});
+</script>
+
+<script>
+// Fallback：若某些设备未正确加载 Bootstrap JS，使用原生 JS 切换标签
+document.addEventListener('DOMContentLoaded', function () {
+  if (window.bootstrap && bootstrap.Tab) return; // 已加载则跳过
+  const tabs = document.querySelectorAll('#mainTabs .nav-link');
+  const panes = document.querySelectorAll('#mainTabsContent .tab-pane');
+  tabs.forEach(link => {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      const targetSel = this.getAttribute('href');
+      tabs.forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      panes.forEach(p => p.classList.remove('show', 'active'));
+      const pane = document.querySelector(targetSel);
+      if (pane) { pane.classList.add('show', 'active'); }
+    }, { passive: false });
+  });
+});
+
+// 疫苗相关功能
+function markVaccinated() {
+  alert('标记已接种功能开发中...');
+}
+
+function viewVaccineHistory() {
+  alert('查看历史功能开发中...');
+}
+
+// 疫苗倒计时功能
+async function updateVaccineCountdown() {
+  // 获取服务器时间
+  let now;
+  try {
+    const response = await fetch('/api/server_time');
+    const data = await response.json();
+    now = new Date(data.server_time);
+  } catch (error) {
+    console.warn('无法获取服务器时间，使用本地时间');
+    now = new Date();
+  }
+  
+  // 从服务器获取宝宝出生日期（北京时间）
+  const babyBirthDate = new Date('{{ baby_birth or "2024-09-14" }}');
+  
+  // 计算乙肝疫苗第二针时间（出生后1个月）
+  const hepatitisDate = new Date(babyBirthDate);
+  hepatitisDate.setMonth(hepatitisDate.getMonth() + 1);
+  const hepatitisDiff = hepatitisDate - now;
+  const hepatitisDays = Math.ceil(hepatitisDiff / (1000 * 60 * 60 * 24));
+  
+  // 计算五联疫苗第一针时间（出生后2个月）
+  const pentavalentDate = new Date(babyBirthDate);
+  pentavalentDate.setMonth(pentavalentDate.getMonth() + 2);
+  const pentavalentDiff = pentavalentDate - now;
+  const pentavalentDays = Math.ceil(pentavalentDiff / (1000 * 60 * 60 * 24));
+  
+  // 使用统一的显示更新逻辑
+  updateCountdownDisplay(hepatitisDate, pentavalentDate, hepatitisDays, pentavalentDays);
+}
+
+// 页面加载时初始化倒计时
+document.addEventListener('DOMContentLoaded', function() {
+  // 处理URL锚点，激活对应的标签页（优先执行）
+  const hash = window.location.hash;
+  if (hash) {
+    const tabElement = document.querySelector(`a[href="${hash}"]`);
+    if (tabElement) {
+      // 使用Bootstrap的Tab API激活标签页
+      const tab = new bootstrap.Tab(tabElement);
+      tab.show();
+    }
+  }
+  
+  updateVaccineCountdown().catch(error => {
+    console.error('疫苗倒计时初始化失败:', error);
+    // 如果异步调用失败，使用同步版本
+    updateVaccineCountdownSync();
+  });
+  // 每小时更新一次倒计时
+  setInterval(() => {
+    updateVaccineCountdown().catch(error => {
+      console.error('疫苗倒计时更新失败:', error);
+    });
+  }, 60 * 60 * 1000);
+});
+
+// 处理URL锚点的独立函数，确保在其他事件之前执行
+function handleUrlHash() {
+  const hash = window.location.hash;
+  if (hash) {
+    const tabElement = document.querySelector(`a[href="${hash}"]`);
+    if (tabElement) {
+      // 延迟执行，确保Bootstrap已加载
+      setTimeout(() => {
+        const tab = new bootstrap.Tab(tabElement);
+        tab.show();
+      }, 100);
+    }
+  }
+}
+
+// 立即执行URL锚点处理
+handleUrlHash();
+
+// 同步版本的倒计时函数（备用）
+function updateVaccineCountdownSync() {
+  const now = new Date();
+  const babyBirthDate = new Date('{{ baby_birth or "2024-09-14" }}');
+  
+  // 计算疫苗时间
+  const hepatitisDate = new Date(babyBirthDate);
+  hepatitisDate.setMonth(hepatitisDate.getMonth() + 1);
+  const hepatitisDiff = hepatitisDate - now;
+  const hepatitisDays = Math.ceil(hepatitisDiff / (1000 * 60 * 60 * 24));
+  
+  const pentavalentDate = new Date(babyBirthDate);
+  pentavalentDate.setMonth(pentavalentDate.getMonth() + 2);
+  const pentavalentDiff = pentavalentDate - now;
+  const pentavalentDays = Math.ceil(pentavalentDiff / (1000 * 60 * 60 * 24));
+  
+  // 更新显示（使用相同的逻辑）
+  updateCountdownDisplay(hepatitisDate, pentavalentDate, hepatitisDays, pentavalentDays);
+}
+
+// 提取显示更新逻辑
+function updateCountdownDisplay(hepatitisDate, pentavalentDate, hepatitisDays, pentavalentDays) {
+  // 更新日期显示
+  const nextVaccineDateEl = document.getElementById('nextVaccineDate');
+  const hepatitisDateEl = document.getElementById('hepatitisDate');
+  const pentavalentDateEl = document.getElementById('pentavalentDate');
+  
+  if (nextVaccineDateEl) {
+    nextVaccineDateEl.textContent = hepatitisDate.toLocaleDateString('zh-CN');
+  }
+  if (hepatitisDateEl) {
+    hepatitisDateEl.textContent = hepatitisDate.toLocaleDateString('zh-CN');
+  }
+  if (pentavalentDateEl) {
+    pentavalentDateEl.textContent = pentavalentDate.toLocaleDateString('zh-CN');
+  }
+  
+  // 更新倒计时显示
+  const hepatitisCountdown = document.getElementById('hepatitisCountdown');
+  const pentavalentCountdown = document.getElementById('pentavalentCountdown');
+  const vaccineCountdown = document.getElementById('vaccineCountdown');
+  
+  if (hepatitisCountdown) {
+    if (hepatitisDays > 7) {
+      hepatitisCountdown.textContent = `${hepatitisDays} 天`;
+      hepatitisCountdown.className = 'vaccine-countdown normal';
+    } else if (hepatitisDays > 0) {
+      hepatitisCountdown.textContent = `${hepatitisDays} 天`;
+      hepatitisCountdown.className = 'vaccine-countdown warning';
+    } else if (hepatitisDays === 0) {
+      hepatitisCountdown.textContent = '今天';
+      hepatitisCountdown.className = 'vaccine-countdown urgent';
+    } else {
+      hepatitisCountdown.textContent = `已逾期 ${Math.abs(hepatitisDays)} 天`;
+      hepatitisCountdown.className = 'vaccine-countdown urgent';
+    }
+  }
+  
+  if (pentavalentCountdown) {
+    if (pentavalentDays > 7) {
+      pentavalentCountdown.textContent = `${pentavalentDays} 天`;
+      pentavalentCountdown.className = 'vaccine-countdown normal';
+    } else if (pentavalentDays > 0) {
+      pentavalentCountdown.textContent = `${pentavalentDays} 天`;
+      pentavalentCountdown.className = 'vaccine-countdown warning';
+    } else if (pentavalentDays === 0) {
+      pentavalentCountdown.textContent = '今天';
+      pentavalentCountdown.className = 'vaccine-countdown urgent';
+    } else {
+      pentavalentCountdown.textContent = `已逾期 ${Math.abs(pentavalentDays)} 天`;
+      pentavalentCountdown.className = 'vaccine-countdown urgent';
+    }
+  }
+  
+  if (vaccineCountdown) {
+    if (hepatitisDays > 7) {
+      vaccineCountdown.textContent = `还有 ${hepatitisDays} 天`;
+      vaccineCountdown.className = 'vaccine-countdown normal';
+    } else if (hepatitisDays > 0) {
+      vaccineCountdown.textContent = `还有 ${hepatitisDays} 天`;
+      vaccineCountdown.className = 'vaccine-countdown warning';
+    } else if (hepatitisDays === 0) {
+      vaccineCountdown.textContent = '今天接种';
+      vaccineCountdown.className = 'vaccine-countdown urgent';
+    } else {
+      vaccineCountdown.textContent = `已逾期 ${Math.abs(hepatitisDays)} 天`;
+      vaccineCountdown.className = 'vaccine-countdown urgent';
+    }
+  }
+}
+</script>
+
+
+{% endblock %}
