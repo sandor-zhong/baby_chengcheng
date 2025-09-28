@@ -1,11 +1,15 @@
 import os
 import json
 from datetime import datetime, timedelta, timezone, date
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, request as flask_request, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, request as flask_request, session, send_file, Response
 from models import db, Event, Moment
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from flask_migrate import Migrate
 import openai
+from functools import wraps
+import hashlib
+import time
+# 已移除TWILIO和定时任务相关导入
 
 # 北京时区 (UTC+8)
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -14,11 +18,41 @@ def beijing_now():
     """获取北京时间"""
     return datetime.now(BEIJING_TZ)
 
+# 缓存装饰器
+def cache_response(timeout=300):
+    """缓存响应装饰器"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # 生成缓存键
+            cache_key = hashlib.md5(f"{f.__name__}{args}{kwargs}".encode()).hexdigest()
+            
+            # 检查缓存（这里使用简单的内存缓存，生产环境建议使用Redis）
+            if hasattr(cache_response, 'cache'):
+                if cache_key in cache_response.cache:
+                    cached_data, timestamp = cache_response.cache[cache_key]
+                    if time.time() - timestamp < timeout:
+                        return cached_data
+            
+            # 执行函数
+            result = f(*args, **kwargs)
+            
+            # 存储到缓存
+            if not hasattr(cache_response, 'cache'):
+                cache_response.cache = {}
+            cache_response.cache[cache_key] = (result, time.time())
+            
+            return result
+        return decorated_function
+    return decorator
+
 # AI配置 - 使用免费的本地模型
 # 可以选择使用 Ollama 或其他免费模型
 AI_MODEL_TYPE = "ollama"  # 可选: "openai", "ollama", "mock"
 OLLAMA_BASE_URL = "http://localhost:11434"  # Ollama默认地址
 AI_FAST_MODE = True  # 快速模式：减少回答长度，提高速度
+
+# 提醒功能已完全移除
 
 def get_baby_profile():
     """获取宝宝信息"""
@@ -27,6 +61,8 @@ def get_baby_profile():
         with open(profile_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {}
+
+# 已移除所有提醒相关功能
 
 def ai_chat(prompt, context=""):
     """AI聊天功能 - 支持多种免费模型"""
@@ -67,18 +103,18 @@ def ai_chat_ollama(prompt, system_prompt):
     try:
         import requests
         import hashlib
-        
+
         # 简单的缓存机制
         cache_key = hashlib.md5(prompt.encode()).hexdigest()[:8]
         cache_file = f"cache/ai_cache_{cache_key}.txt"
-        
+
         # 检查缓存
         if os.path.exists(cache_file):
             with open(cache_file, 'r', encoding='utf-8') as f:
                 cached_response = f.read()
                 if cached_response and len(cached_response) > 10:
                     return f"[缓存回答] {cached_response}"
-        
+
         # 使用已安装的模型
         model_name = "gemma3:1b"  # 使用您已安装的模型
         
@@ -772,11 +808,22 @@ def create_app() -> Flask:
 
         # ===== 时光相关路由 =====
     @app.route('/moments')
+    @cache_response(timeout=60)  # 缓存1分钟
     def moments():
-        """时光页面 - 类似朋友圈"""
+        """时光页面 - 类似朋友圈，支持懒加载"""
         page = request.args.get('page', 1, type=int)
-        per_page = 10
-        moments = Moment.query.order_by(Moment.timestamp.desc()).paginate(
+        per_page = request.args.get('per_page', 10, type=int)
+        favorite_only = request.args.get('favorite', 'false').lower() == 'true'
+        
+        # 构建查询
+        query = Moment.query
+        
+        # 如果只显示收藏
+        if favorite_only:
+            query = query.filter(Moment.is_favorite == True)
+        
+        # 使用索引优化查询
+        moments = query.order_by(Moment.timestamp.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
 
@@ -800,7 +847,104 @@ def create_app() -> Flask:
                 last_label = label
             groups[-1]['items'].append(m)
 
-        return render_template('moments.html', moments=moments, groups=groups)
+        return render_template('moments.html', moments=moments, groups=groups, 
+                             favorite_only=favorite_only, per_page=per_page)
+
+    @app.route('/api/moments/load')
+    def load_moments_api():
+        """懒加载时光API"""
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        favorite_only = request.args.get('favorite', 'false').lower() == 'true'
+        
+        # 构建查询
+        query = Moment.query
+        
+        if favorite_only:
+            query = query.filter(Moment.is_favorite == True)
+        
+        moments = query.order_by(Moment.timestamp.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        # 返回JSON格式数据
+        moments_data = []
+        for moment in moments.items:
+            moments_data.append({
+                'id': moment.id,
+                'content': moment.content,
+                'image_path': moment.image_path,
+                'thumb_path': moment.thumb_path,
+                'video_path': moment.video_path,
+                'is_favorite': moment.is_favorite,
+                'timestamp': moment.timestamp.isoformat(),
+                'date_label': get_date_label(moment.timestamp.date())
+            })
+        
+        return jsonify({
+            'moments': moments_data,
+            'has_next': moments.has_next,
+            'has_prev': moments.has_prev,
+            'current_page': moments.page,
+            'total_pages': moments.pages
+        })
+
+def get_date_label(d: date) -> str:
+    """获取日期标签"""
+    today_d = date.today()
+    yesterday_d = today_d - timedelta(days=1)
+    
+    if d == today_d:
+        return '今天'
+    if d == yesterday_d:
+        return '昨天'
+    return d.strftime('%m月%d日')
+
+    @app.route('/api/moments/search')
+    @cache_response(timeout=300)  # 缓存5分钟
+    def search_moments():
+        """搜索时光API"""
+        query = request.args.get('q', '').strip()
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        
+        if not query:
+            return jsonify({'moments': [], 'total': 0, 'message': '请输入搜索关键词'})
+        
+        # 使用全文搜索
+        search_query = Moment.query.filter(
+            or_(
+                Moment.content.contains(query),
+                Moment.content.like(f'%{query}%')
+            )
+        ).order_by(Moment.timestamp.desc())
+        
+        moments = search_query.paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        moments_data = []
+        for moment in moments.items:
+            moments_data.append({
+                'id': moment.id,
+                'content': moment.content,
+                'image_path': moment.image_path,
+                'thumb_path': moment.thumb_path,
+                'video_path': moment.video_path,
+                'is_favorite': moment.is_favorite,
+                'timestamp': moment.timestamp.isoformat(),
+                'date_label': get_date_label(moment.timestamp.date())
+            })
+        
+        return jsonify({
+            'moments': moments_data,
+            'total': moments.total,
+            'has_next': moments.has_next,
+            'has_prev': moments.has_prev,
+            'current_page': moments.page,
+            'total_pages': moments.pages,
+            'query': query
+        })
 
     @app.route('/moments/create', methods=['GET', 'POST'])
     def create_moment():
@@ -1081,11 +1225,12 @@ def create_app() -> Flask:
         advice = ai_health_advice()
         return jsonify({'success': True, 'advice': advice})
 
+# 已移除所有提醒相关路由
+
     return app
 
 
 app = create_app()
-
 
 if __name__ == '__main__':
     # 生产环境使用gunicorn，开发环境使用Flask开发服务器
