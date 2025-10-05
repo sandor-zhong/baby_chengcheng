@@ -173,7 +173,7 @@ body {
   <!-- 完整封面区域（包含背景图片） -->
   <div class="position-relative rounded cover-container" style="height:140px; overflow:hidden;">
     {% if request.endpoint != 'settings' %}
-    <form action="{{ url_for('upload_cover') }}" method="post" enctype="multipart/form-data" id="coverForm">
+    <form action="{{ url_for('profile.upload_cover') }}" method="post" enctype="multipart/form-data" id="coverForm">
       <input type="file" name="cover" id="coverInput" accept="image/*" style="display:none" onchange="document.getElementById('coverForm').submit()">
       <img src="{{ cover_url }}" alt="cover" id="coverImage" style="width:100%;height:100%;object-fit:cover;filter:brightness(0.95);cursor:pointer;transition:all 0.3s ease;" onclick="handleCoverClick()" onmouseover="this.style.transform='scale(1.02)'; this.style.filter='brightness(1.05)'" onmouseout="this.style.transform='scale(1)'; this.style.filter='brightness(0.95)'">
     </form>
@@ -185,7 +185,7 @@ body {
         <div class="position-absolute" style="bottom: 8px; left: 8px;">
           <div class="d-flex align-items-center gap-2 text-white">
             {% if request.endpoint != 'settings' %}
-            <a href="{{ url_for('settings') }}" class="text-decoration-none">
+            <a href="{{ url_for('profile.settings') }}" class="text-decoration-none">
               <img src="{{ avatar_url }}" alt="avatar" class="rounded-circle" style="width:56px;height:56px;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.5);cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
             </a>
             {% else %}
@@ -202,10 +202,10 @@ body {
         <!-- 时光按钮和AI按钮在右下角 -->
         <div class="position-absolute" style="bottom: 8px; right: 8px;">
           <div class="btn-group" role="group">
-                <a href="{{ url_for('ai_page') }}" class="btn btn-sm btn-outline-light" title="AI助手">
+                <a href="{{ url_for('ai.ai_page') }}" class="btn btn-sm btn-outline-light" title="AI助手">
                     <span style="font-weight: bold; font-size: 0.8rem;">AI</span>
                 </a>
-            <a href="{{ url_for('moments') }}" class="btn btn-sm btn-light">
+            <a href="{{ url_for('moments.moments') }}" class="btn btn-sm btn-light">
               <i class="bi bi-camera"></i> 时光
             </a>
           </div>
@@ -218,7 +218,7 @@ body {
     <!-- 头像和文字信息在左下角 -->
     <div class="position-absolute" style="bottom: 12px; left: 12px;">
       <div class="d-flex align-items-center gap-3">
-        <a href="{{ url_for('settings') }}" class="text-decoration-none">
+        <a href="{{ url_for('profile.settings') }}" class="text-decoration-none">
           <img src="{{ avatar_url }}" alt="avatar" class="rounded-circle" style="width:48px;height:48px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
         </a>
         <div>
@@ -232,10 +232,10 @@ body {
     <!-- 时光按钮和AI按钮在右下角 -->
     <div class="position-absolute" style="bottom: 12px; right: 12px;">
       <div class="btn-group" role="group">
-                <a href="{{ url_for('ai_page') }}" class="btn btn-sm btn-outline-secondary" title="AI助手">
+                <a href="{{ url_for('ai.ai_page') }}" class="btn btn-sm btn-outline-secondary" title="AI助手">
                     <span style="font-weight: bold; font-size: 0.8rem;">AI</span>
                 </a>
-        <a href="{{ url_for('moments') }}" class="btn btn-sm btn-outline-primary">
+        <a href="{{ url_for('moments.moments') }}" class="btn btn-sm btn-outline-primary">
           <i class="bi bi-camera"></i> 时光
         </a>
       </div>
@@ -245,6 +245,22 @@ body {
 </header>
 
 
+
+<div class="d-flex justify-content-end mb-2">
+  {% if current_user %}
+  <form method="post" action="{{ url_for('auth.logout_submit') }}">
+    <div class="d-flex align-items-center gap-2">
+      <span class="text-muted small">{{ current_user.email }}</span>
+      <button class="btn btn-sm btn-outline-secondary" type="submit">退出</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('auth.login_page') }}">登录</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('auth.register_page') }}">注册</a>
+  </div>
+  {% endif %}
+  </div>
 
 
 {% with messages = get_flashed_messages(with_categories=true) %}

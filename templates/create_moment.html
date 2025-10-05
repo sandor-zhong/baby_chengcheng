@@ -446,7 +446,7 @@
                         <p>分享宝宝的珍贵瞬间</p>
                     </div>
                     <div class="moment-body" style="padding: 0px 15px 15px 15px !important;">
-                    <form action="{{ url_for('create_moment') }}" method="post" enctype="multipart/form-data">
+                    <form action="{{ url_for('moments.create_moment') }}" method="post" enctype="multipart/form-data">
                         <div class="mb-2">
                             <label for="content" class="form-label">分享这一刻</label>
                             <textarea name="content" id="content" class="form-control" rows="3" 
@@ -478,7 +478,7 @@
 
                         <div class="row mt-2 mb-2">
                             <div class="col-6 d-flex justify-content-start">
-                                <a href="{{ url_for('moments') }}" class="btn btn-outline-secondary" style="border-radius: 15px; padding: 6px 16px; font-weight: 500; border: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; font-size: 0.8rem; transition: all 0.3s ease;">
+                                <a href="{{ url_for('moments.moments') }}" class="btn btn-outline-secondary" style="border-radius: 15px; padding: 6px 16px; font-weight: 500; border: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; font-size: 0.8rem; transition: all 0.3s ease;">
                                     <i class="bi bi-arrow-left me-1"></i>返回
                                 </a>
                             </div>

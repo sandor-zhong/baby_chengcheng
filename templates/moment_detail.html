@@ -63,7 +63,7 @@ html, body { overflow-x: hidden; }
     <div class="col-12 col-md-10">
       <!-- 顶部操作栏 - 更优雅的设计 -->
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <a href="{{ url_for('moments') }}" class="btn btn-link text-muted text-decoration-none">
+        <a href="{{ url_for('moments.moments') }}" class="btn btn-link text-muted text-decoration-none">
           <i class="bi bi-arrow-left me-1"></i>返回
         </a>
         <div class="dropdown">
@@ -72,13 +72,13 @@ html, body { overflow-x: hidden; }
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
             <li>
-              <a class="dropdown-item" href="{{ url_for('edit_moment', moment_id=moment.id) }}">
+              <a class="dropdown-item" href="{{ url_for('moments.edit_moment', moment_id=moment.id) }}">
                 <i class="bi bi-pencil me-2"></i>编辑
               </a>
             </li>
             <li><hr class="dropdown-divider"></li>
             <li>
-              <button type="button" class="dropdown-item text-danger" onclick="showDeleteConfirm('确定删除此时光吗？', '{{ url_for('delete_moment', moment_id=moment.id) }}', {})">
+              <button type="button" class="dropdown-item text-danger" onclick="showDeleteConfirm('确定删除此时光吗？', '{{ url_for('moments.delete_moment', moment_id=moment.id) }}', {})">
                 <i class="bi bi-trash me-2"></i>删除
               </button>
             </li>
@@ -152,7 +152,7 @@ html, body { overflow-x: hidden; }
           <!-- 导航按钮 - 更优雅的设计 -->
           <div class="d-flex justify-content-center gap-3 pt-3 border-top">
             {% if prev_m %}
-            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('moment_detail', moment_id=prev_m.id) }}">
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('moments.moment_detail', moment_id=prev_m.id) }}">
               <i class="bi bi-chevron-left me-1"></i>上一条
             </a>
             {% else %}
@@ -164,7 +164,7 @@ html, body { overflow-x: hidden; }
             <span class="text-muted align-self-center">|</span>
             
             {% if next_m %}
-            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('moment_detail', moment_id=next_m.id) }}">
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('moments.moment_detail', moment_id=next_m.id) }}">
               下一条<i class="bi bi-chevron-right ms-1"></i>
             </a>
             {% else %}

@@ -5,7 +5,7 @@
     <div class="card mb-3">
       <div class="card-body">
         <h5 class="card-title">宝宝资料</h5>
-        <form class="row g-2" action="{{ url_for('update_profile') }}" method="post">
+        <form class="row g-2" action="{{ url_for('profile.update_profile') }}" method="post">
           <div class="col-12">
             <label class="form-label">昵称</label>
             <input name="baby_name" class="form-control" placeholder="宝宝昵称" value="{{ baby_name }}">
@@ -29,7 +29,7 @@
         <h5 class="card-title">头像</h5>
         <div class="d-flex align-items-center gap-2 mb-2">
           <img src="{{ avatar_url }}" alt="avatar" class="rounded-circle" style="width:72px;height:72px;object-fit:cover;box-shadow:0 0 0 2px rgba(0,0,0,.05)">
-          <form action="{{ url_for('upload_avatar') }}" method="post" enctype="multipart/form-data">
+          <form action="{{ url_for('profile.upload_avatar') }}" method="post" enctype="multipart/form-data">
             <input type="file" name="avatar" accept="image/*" class="form-control">
             <div class="form-text">支持 JPG/PNG，最大 4MB</div>
             <div class="mt-2"><button class="btn btn-outline-secondary">上传新头像</button></div>
@@ -54,7 +54,7 @@
     </div>
 
     <div class="text-center mt-3">
-      <a class="btn btn-link" href="{{ url_for('index') }}">返回首页</a>
+      <a class="btn btn-link" href="{{ url_for('main.index') }}">返回首页</a>
     </div>
   </div>
 </div>
@@ -106,7 +106,7 @@
       const fd = new FormData();
       fd.append('cover', blob, 'cover.jpg');
       try {
-        const resp = await fetch('{{ url_for('upload_cover') }}', { method: 'POST', body: fd });
+        const resp = await fetch('{{ url_for('profile.upload_cover') }}', { method: 'POST', body: fd });
         if (resp.redirected) { window.location.href = resp.url; return; }
         if (resp.ok) { location.reload(); }
         else { alert('上传失败'); }

@@ -2,9 +2,9 @@
 {% block content %}
 
 <div class="d-flex gap-2 mb-2">
-  <a class="btn btn-sm {% if filter_type=='all' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('history', type='all') }}">全部</a>
-  <a class="btn btn-sm {% if filter_type=='feed' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('history', type='feed') }}">只看喂奶</a>
-  <a class="btn btn-sm {% if filter_type=='diaper' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('history', type='diaper') }}">只看尿布</a>
+  <a class="btn btn-sm {% if filter_type=='all' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('main.history', type='all') }}">全部</a>
+  <a class="btn btn-sm {% if filter_type=='feed' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('main.history', type='feed') }}">只看喂奶</a>
+  <a class="btn btn-sm {% if filter_type=='diaper' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('main.history', type='diaper') }}">只看尿布</a>
 </div>
 
 <div class="table-responsive">
@@ -26,7 +26,7 @@
 <td>{{ e.amount_ml or '-' }}</td>
 <td>{{ e.note or '-' }}</td>
 <td>
-  <button type="button" class="btn btn-sm btn-outline-danger" onclick="showDeleteConfirm('确定删除这条记录吗？', '{{ url_for('delete_event', event_id=e.id) }}', {})">删除</button>
+  <button type="button" class="btn btn-sm btn-outline-danger" onclick="showDeleteConfirm('确定删除这条记录吗？', '{{ url_for('main.delete_event', event_id=e.id) }}', {})">删除</button>
 </td>
 </tr>
 {% endfor %}
@@ -35,5 +35,5 @@
 </div>
 
 
-<a href="{{ url_for('index') }}" class="btn btn-secondary">返回</a>
+<a href="{{ url_for('main.index') }}" class="btn btn-secondary">返回</a>
 {% endblock %}

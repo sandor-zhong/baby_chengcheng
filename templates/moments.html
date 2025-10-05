@@ -411,7 +411,7 @@
 <div class="container">
   <!-- 简洁顶部导航 -->
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left me-1"></i>返回首页
     </a>
     
@@ -455,7 +455,7 @@
           </li>
         </ul>
       </div>
-      <a href="{{ url_for('create_moment') }}" class="btn btn-outline-primary btn-sm">
+      <a href="{{ url_for('moments.create_moment') }}" class="btn btn-outline-primary btn-sm">
         <i class="bi bi-camera-fill"></i>
       </a>
     </div>
@@ -470,7 +470,7 @@
                   {% for g in groups %}
                     {% for moment in g['items'] %}
                       <div class="moment-item" data-favorite="{{ moment.is_favorite|lower }}">
-                        <a href="{{ url_for('moment_detail', moment_id=moment.id) }}" class="moment-link">
+                        <a href="{{ url_for('moments.moment_detail', moment_id=moment.id) }}" class="moment-link">
                           <div class="moment-header">
                             <div class="moment-time">{{ moment.timestamp.strftime('%m月%d日 %H:%M') }}</div>
                             {% if moment.is_favorite %}
@@ -516,13 +516,13 @@
                     <ul class="pagination justify-content-center">
                         {% if moments.has_prev %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('moments', page=moments.prev_num) }}">上一页</a>
+                            <a class="page-link" href="{{ url_for('moments.moments', page=moments.prev_num) }}">上一页</a>
                         </li>
                         {% endif %}
                         {% for page_num in moments.iter_pages() %}
                             {% if page_num %}
                                 {% if page_num != moments.page %}
-                                <li class="page-item"><a class="page-link" href="{{ url_for('moments', page=page_num) }}">{{ page_num }}</a></li>
+                                <li class="page-item"><a class="page-link" href="{{ url_for('moments.moments', page=page_num) }}">{{ page_num }}</a></li>
                                 {% else %}
                                 <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
                                 {% endif %}
@@ -531,7 +531,7 @@
                             {% endif %}
                         {% endfor %}
                         {% if moments.has_next %}
-                        <li class="page-item"><a class="page-link" href="{{ url_for('moments', page=moments.next_num) }}">下一页</a></li>
+                        <li class="page-item"><a class="page-link" href="{{ url_for('moments.moments', page=moments.next_num) }}">下一页</a></li>
                         {% endif %}
                     </ul>
                 </nav>
@@ -541,7 +541,7 @@
                     <i class="bi bi-camera"></i>
                     <h5>还没有时光记录</h5>
                     <p>记录下宝宝的美好瞬间吧！</p>
-                    <a href="{{ url_for('create_moment') }}" class="btn btn-primary">
+                    <a href="{{ url_for('moments.create_moment') }}" class="btn btn-primary">
                         <i class="bi bi-plus"></i> 发布第一条时光
                     </a>
                 </div>
@@ -550,7 +550,7 @@
     </div>
 </div>
 
-<a href="{{ url_for('create_moment') }}" class="create-btn" title="发布时光">
+<a href="{{ url_for('moments.create_moment') }}" class="create-btn" title="发布时光">
     <i class="bi bi-plus"></i>
 </a>
 
